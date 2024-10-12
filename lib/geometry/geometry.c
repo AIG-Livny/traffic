@@ -1,0 +1,367 @@
+#include "geometry.h"
+
+#include <memory.h>
+#include <stdbool.h>
+#include <iso646.h>
+
+#include "cvector_utils.h"
+
+static void gm_find_extremes(union gm_extremes* extremes, const cvector_vector_type(union gm_vct3i) points){
+    *extremes = (union gm_extremes){.data = {points,points,points,points,points,points}};
+
+    #define SET_MAX(axis)                           \
+        if (it->axis > extremes->max_##axis->axis){ \
+            extremes->max_##axis=it;                \
+        }
+    #define SET_MIN(axis)                           \
+        if (it->axis < extremes->min_##axis->axis){ \
+            extremes->min_##axis=it;                \
+        }
+
+    union gm_vct3i* it;
+    cvector_for_each_in(it, (cvector_vector_type(union gm_vct3i))points){
+        SET_MIN(x);SET_MAX(x);
+        SET_MIN(y);SET_MAX(y);
+        SET_MIN(z);SET_MAX(z);
+    }
+} 
+
+struct convex_plane {
+    struct gm_trianglei triangle;
+    cvector_vector_type(union gm_vct3i) outside_points;
+};
+
+// Calculating the horizon for an eye to make new faces
+bool calc_horizon(
+    cvector_vector_type(int) all_planes, 
+    cvector_vector_type(int) visited_planes, 
+    int current_plane,
+    union gm_vct3i* eye_point,
+    cvector_vector_type(struct gm_segmenti) segments,
+    cvector_vector_type(struct convex_plane) plane_storage
+    )
+{
+    cvector_iterator(int) plane;
+    double dist;
+    //double dist = gm_trianglei_disti(&plane_storage[current_plane].triangle,eye_point);
+    GM_TRIANGLEI_DIST(dist, plane_storage[current_plane].triangle, *eye_point);
+
+    if( dist > 0){
+        cvector_push_back(visited_planes, current_plane);
+        for(int i = 0; i < 3; i++){
+
+            // Edge
+            union gm_vct3i* e1 = &plane_storage[current_plane].triangle.p[i];
+            union gm_vct3i* e2;
+            if (i < 2){e2 = &plane_storage[current_plane].triangle.p[i+1];}else{e2 = &plane_storage[current_plane].triangle.p[0];}
+
+            // Finding adjacent planes to an edge
+            int adjacent = -1;
+            cvector_for_each_in(plane, all_planes){
+                if (*plane == current_plane){
+                    continue;
+                }
+
+                bool e1_found = false;
+                bool e2_found = false;
+                for(int i = 0; i < 3; i++){
+                    if(not e1_found)
+                    if(memcmp(e1,&plane_storage[*plane].triangle.p[i],sizeof(union gm_vct3i)) == 0){
+                        e1_found = true;
+
+                    }
+                    if(not e2_found)
+                    if(memcmp(e2,&plane_storage[*plane].triangle.p[i],sizeof(union gm_vct3i)) == 0){
+                        e2_found = true;
+                    }
+                }
+
+                if (e1_found and e2_found){
+                    adjacent = *plane;
+                    break;
+                }
+            }
+            
+            if(adjacent == -1){
+                continue;
+            }
+
+            // If not adjacent in visited_planes
+            cvector_iterator(int) it_vp;
+            cvector_for_each_in(it_vp, visited_planes){
+                if(adjacent == *it_vp){
+                    break;
+                }
+            }
+            if(it_vp == cvector_end(visited_planes)){
+                bool result = calc_horizon(all_planes, visited_planes, adjacent, eye_point, segments, plane_storage);
+                if (result){
+                    cvector_push_back(segments, ((struct gm_segmenti){.start=*e1, .end=*e2}) );
+                }
+            }
+        }
+        return false;
+    }else{
+        return true;
+    }
+}
+
+// Quickhull for 3d integer space
+static void gm_update_convex_hull0(struct gm_convex_hull* ch, const cvector_vector_type(union gm_vct3i) points, const union gm_extremes* extremes){
+    // Delete old data
+    cvector_free(ch->tris);
+    ch->tris = NULL;
+
+    // If no extremes then find them
+    union gm_extremes tmp_extremes;
+    union gm_extremes* pextremes = (union gm_extremes*)extremes;
+
+    if ( not extremes ) {
+        pextremes = &tmp_extremes;
+        gm_find_extremes(pextremes, points);
+    }
+
+    // Check if we have 3d structure
+    if(pextremes->min_x == pextremes->max_x){return;}
+    if(pextremes->min_y == pextremes->max_y){return;}
+    if(pextremes->min_z == pextremes->max_z){return;}
+    
+    // From the extreme points calculate the 2 most distant points
+    double max_dist = 0;
+    const union gm_vct3i* start_points[4];
+    for(int i = 0; i < 3*2; i++){
+        for(int j = i+1; j < 3*2; j++){
+            double dist = GM_VCT3_DISTANCE_SQUARED(*pextremes->data[i],*pextremes->data[j]);
+            if(dist > max_dist){
+                max_dist = dist;
+                start_points[0] = pextremes->data[i];
+                start_points[1] = pextremes->data[j];
+            }
+        }
+    }
+    
+    if (max_dist == 0){
+        // p[0] - p[1] is not line!
+        return;
+    }
+
+    // Let's find third point
+    // Most distant from line
+    max_dist = 0;
+    cvector_iterator(union gm_vct3i) point;
+    cvector_for_each_in(point, (cvector_vector_type(union gm_vct3i))points){
+        if( (start_points[0] == point) or (start_points[1] == point) ){
+            continue;
+        }
+
+        double dist = 0;
+        bool error = false;
+        GM_VCT3_DISTANCE_TO_LINE_SQUARED(dist, error, *point, *start_points[0],*start_points[1]);
+        if(error){continue;}
+        if ( fabs(dist) > max_dist ){
+            max_dist = dist;
+            start_points[2] = point;
+        }
+    }
+    
+    // Make first plane
+    cvector_vector_type(struct convex_plane) plane_storage = NULL;
+    cvector_reserve(plane_storage, 40);
+
+    cvector_push_back(plane_storage,
+        ((struct convex_plane){
+            .triangle=(struct gm_trianglei){.p={*start_points[0],*start_points[1],*start_points[2]}},
+            .outside_points = NULL,
+        }));
+    cvector_init(cvector_back(plane_storage)->outside_points, 20, NULL);
+    struct convex_plane* cp = cvector_back(plane_storage);
+    GM_TRIANGLEI_CALC_NORM(cp->triangle);
+
+    // Fourth point
+    max_dist = 0;
+    cvector_for_each_in(point, (cvector_vector_type(union gm_vct3i))points){
+        double dist;
+        union gm_vct3f pnt = {point->x,point->y,point->z};
+        GM_TRIANGLEI_DIST(dist, cp->triangle, pnt);
+        if ( fabs(dist) > max_dist ){
+            max_dist = dist;
+            start_points[3] = point;
+        }
+    }
+
+    // Other 3 planes
+    cvector_push_back(plane_storage,
+        ((struct convex_plane){
+            .triangle=(struct gm_trianglei){.p={*start_points[0],*start_points[1],*start_points[3]}},
+            .outside_points = NULL,
+        }));
+    cvector_init(cvector_back(plane_storage)->outside_points, 20, NULL);
+    GM_TRIANGLEI_CALC_NORM(cvector_back(plane_storage)->triangle);
+    
+    cvector_push_back(plane_storage,
+        ((struct convex_plane){
+            .triangle=(struct gm_trianglei){.p={*start_points[0],*start_points[3],*start_points[2]}},
+            .outside_points = NULL,
+        }));
+    cvector_init(cvector_back(plane_storage)->outside_points, 20, NULL);
+    GM_TRIANGLEI_CALC_NORM(cvector_back(plane_storage)->triangle);
+    
+    cvector_push_back(plane_storage,
+        ((struct convex_plane){
+            .triangle=(struct gm_trianglei){.p={*start_points[1],*start_points[2],*start_points[3]}},
+            .outside_points = NULL,
+        }));
+    cvector_init(cvector_back(plane_storage)->outside_points, 20, NULL);
+    GM_TRIANGLEI_CALC_NORM(cvector_back(plane_storage)->triangle);
+    
+
+    cvector_iterator(struct convex_plane) stored_plane;
+    cvector_for_each_in(stored_plane, plane_storage){
+        // Correct normals
+        for (int pi = 0; pi < 4; pi++){
+            union gm_vct3i tmp_v = *start_points[pi];
+            GM_VCT3_SUBST(tmp_v, stored_plane->triangle.p[0]);
+            union gm_vct3f tmp_vf = {.x=tmp_v.x, .y=tmp_v.y, .z=tmp_v.z};
+            double dist = GM_VCT3_DOT( stored_plane->triangle.normal, tmp_vf);
+            if(dist > 0){
+                GM_VCT3_MULT(stored_plane->triangle.normal, -1);
+            }
+        }
+
+        // Find all outside points
+        cvector_for_each_in(point, (cvector_vector_type(union gm_vct3i))points){
+            double dist;
+            GM_TRIANGLEI_DIST(dist, stored_plane->triangle, *point);
+            if (dist > 0){
+                cvector_push_back(stored_plane->outside_points,*point);
+            } 
+        }
+    }
+
+    cvector_vector_type(int) visited_planes             = NULL;
+    cvector_vector_type(int) planes                     = NULL;
+    cvector_vector_type(struct gm_segmenti) segments    = NULL;
+    
+    cvector_reserve(visited_planes, 40);
+    cvector_reserve(planes, 40);
+    cvector_reserve(segments, 40);
+
+    cvector_iterator(struct gm_segmenti) segment;
+    cvector_iterator(int) visited_plane;
+    cvector_iterator(int) plane;
+    cvector_iterator(int) plane2;
+
+    // Add all plane indicies to vector
+    cvector_for_each_in(stored_plane, plane_storage){
+        cvector_push_back(planes, stored_plane - plane_storage);
+    }
+
+    bool any_left = true;
+    while (any_left){
+        any_left = false;
+        cvector_for_each_in(plane, planes){
+            if(cvector_size(plane_storage[*plane].outside_points)){
+                any_left = true;
+                
+                // Calculate the eye point of the face
+                union gm_vct3i eye_point;
+                max_dist = 0;
+                cvector_for_each_in(point, plane_storage[*plane].outside_points){
+                    double dist;
+                    GM_TRIANGLEI_DIST(dist, plane_storage[*plane].triangle, *point);
+                    if(dist > max_dist){
+                        max_dist = dist;
+                        eye_point = *point;
+                    }
+                }
+
+                calc_horizon(planes, visited_planes, *plane, &eye_point, segments, plane_storage);
+
+                // Delete all visited indicies from planes 
+                cvector_for_each_in(visited_plane, visited_planes){
+                    cvector_for_each_in(plane2, planes){
+                        if(*plane2 == *visited_plane){
+                            cvector_erase(planes,plane2-planes);
+                            break;
+                        }
+                    }
+                }
+                
+                cvector_for_each_in(segment, segments){
+                    cvector_push_back(plane_storage, ((struct convex_plane){
+                        .triangle={.p={
+                                segment->start, 
+                                segment->end, 
+                                eye_point
+                            }
+                        },
+                        .outside_points = NULL
+                    }));
+
+                    struct convex_plane* new_plane;
+                    new_plane = cvector_back(plane_storage);
+                    cvector_push_back(planes, cvector_size(plane_storage)-1);
+
+                    GM_TRIANGLEI_CALC_NORM(new_plane->triangle);
+
+                    // Correct normal new plane
+                    for (int pi = 0; pi < 4; pi++){
+                        union gm_vct3i tmp_v = *start_points[pi];
+                        GM_VCT3_SUBST(tmp_v, new_plane->triangle.p[0]);
+                        union gm_vct3f tmp_vf = {.x=tmp_v.x, .y=tmp_v.y, .z=tmp_v.z};
+                        double dist = GM_VCT3_DOT( new_plane->triangle.normal, tmp_vf);
+                        if(dist > 0){
+                            GM_VCT3_MULT(new_plane->triangle.normal, -1);
+                        }
+                    }
+                
+                    // Find all outside points for new plane
+                    cvector_for_each_in(visited_plane, visited_planes){
+                        cvector_for_each_in(point, plane_storage[*visited_plane].outside_points){
+                            double dist;
+                            GM_TRIANGLEI_DIST(dist, new_plane->triangle, *point);
+                            if (dist > 0){
+                                cvector_push_back(new_plane->outside_points,*point);
+                            } 
+                        }
+                    }
+                }
+
+                cvector_clear(visited_planes);
+                cvector_clear(segments);
+            }
+        }
+    }
+
+    // Copy planes to convex hull
+    cvector_iterator(struct gm_trianglei) tris;
+    cvector_init(ch->tris, cvector_size(planes), NULL);
+    cvector_for_each_in(plane, planes){
+        cvector_push_back(ch->tris, plane_storage[*plane].triangle);
+    }
+
+    // Free data
+    cvector_free(planes);
+    cvector_free(visited_planes);
+    cvector_free(segments);
+    cvector_for_each_in(stored_plane, stored_plane){
+        cvector_free(stored_plane->outside_points);
+    }
+    cvector_free(plane_storage);
+}
+
+void gm_update_convex_hull(struct gm_convex_hull* ch, const cvector_vector_type(union gm_vct3i) points, const union gm_extremes* extremes){
+    gm_update_convex_hull0(ch,points,extremes);
+}
+
+bool gm_is_vct3i_inside_convex_hull(const struct gm_convex_hull* ch, const union gm_vct3i* point){
+    cvector_iterator(struct gm_trianglei) it;
+    cvector_for_each_in(it, ch->tris){
+        double dist;
+        GM_TRIANGLEI_DIST(dist, *it, *(union gm_vct3i*)point);
+        if(dist > 0){
+            return false;
+        }
+    }
+    return true;
+}

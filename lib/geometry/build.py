@@ -6,31 +6,20 @@ def config() -> list["mapyr.ProjectConfig"]:
     result = []
     p = mapyr.ProjectConfig()
 
-    p.OUT_FILE  = "bin/traffic"
+    p.OUT_FILE  = "libgeometry.a"
     p.COMPILER  = "clang"
     p.CFLAGS    = ["-g","-O0"]
-    p.INCLUDE_DIRS = ['include']
+    p.SRC_DIRS  = ["."]
     #p.CFLAGS    = ["-Ofast","-flto"]
     #p.LINK_EXE_FLAGS = ["-flto"]
-    p.VSCODE_CPPTOOLS_CONFIG = True
-
-    p.SUBPROJECTS = [
-        'lib/shaderutils',
-        'lib/mathc',
-        'lib/geometry',
-    ]
 
     p.INCLUDE_DIRS = [
-        'lib/c-vector',
+        '.',
+        '../c-vector',
     ]
 
     p.DEFINES = [
         'CVECTOR_LOGARITHMIC_GROWTH',
-    ]
-
-    p.PKG_SEARCH = [
-        'glfw3',
-        'glew',
     ]
 
     result.append(p)

@@ -1,16 +1,15 @@
 {
-    "VsCodeTaskButtons.showCounter": false,
-    "VsCodeTaskButtons.tasks": [
+    "activitusbar.views":[
         {
-            "label": "run",
-            "task": "run",
-        },
-        {
-            "label": "clean",
-            "task": "clean"
+            "name": "task.run",
+            "codicon": "debug-start"
         }
     ],
     "files.associations": {
-        "test.h": "c"
+        "test.h": "c",
+        "cstdlib": "c",
+        "array": "cpp",
+        "string": "cpp",
+        "string_view": "cpp"
     }
 }

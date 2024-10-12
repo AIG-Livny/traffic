@@ -1,5 +1,6 @@
 /*
     GeoMetry
+    v.0.1
 */
 
 #ifndef GM_H
@@ -11,65 +12,115 @@
 
 #include "cvector.h"
 
-#ifndef GM_TYPE
-#define GM_TYPE int32_t
-#endif
-
-#define GM_DIMS 3
 #define GM_X 0
 #define GM_Y 1
 #define GM_Z 2
+#define GM_W 3
 
-union _gm_vct3f {
+#define GM_R 0
+#define GM_G 1
+#define GM_B 2
+#define GM_A 3
+
+#define GM_LEFT     0
+#define GM_TOP      1
+#define GM_WIDTH    2
+#define GM_HEIGHT   3
+
+union gm_vct2f {
+    struct {
+        double x,y;
+    };
+    double data[2];
+};
+
+union gm_vct2i {
+    struct {
+        int32_t x,y;
+    };
+    int32_t data[2];
+};
+
+union gm_vct3f {
     struct {
         double x,y,z;
     };
-    double data[GM_DIMS];
+    double data[3];
 };
 
-typedef union _gm_vct3f gm_vct3f;
-
-union _gm_vct3i {
+union gm_vct3i {
     struct {
-        GM_TYPE x,y,z;
+        int32_t x,y,z;
     };
-    GM_TYPE data[GM_DIMS];
+    int32_t data[3];
 };
 
-typedef union _gm_vct3i gm_vct3i;
+/*
+Matrix 4×4 representation:
+0/m11 4/m12  8/m13 12/m14
+1/m21 5/m22  9/m23 13/m24
+2/m31 6/m32 10/m33 14/m34
+3/m41 7/m42 11/m43 15/m44
+*/
+union gm_mat4f {
+    struct {
+        double m11;
+        double m21;
+        double m31;
+        double m41;
+        double m12;
+        double m22;
+        double m32;
+        double m42;
+        double m13;
+        double m23;
+        double m33;
+        double m43;
+        double m14;
+        double m24;
+        double m34;
+        double m44;
+    };
+    double data[16];
+};
 
 struct gm_recti {
-    gm_vct3i min;
-    gm_vct3i max;
+    union gm_vct3i min;
+    union gm_vct3i max;
 };
 
 struct gm_segmenti {
-    gm_vct3i start;
-    gm_vct3i end;
+    union gm_vct3i start;
+    union gm_vct3i end;
+};
+
+struct gm_segmentf {
+    union gm_vct3f start;
+    union gm_vct3f end;
 };
 
 struct gm_trianglei {
-    gm_vct3i p[3];
-    gm_vct3f normal;
+    union gm_vct3i p[3];
+    union gm_vct3f normal;
 };
 
 union gm_extremes {
     struct {
-        const gm_vct3i* min_x; 
-        const gm_vct3i* max_x; 
-        const gm_vct3i* min_y; 
-        const gm_vct3i* max_y; 
-        const gm_vct3i* min_z; 
-        const gm_vct3i* max_z;
+        const union gm_vct3i* min_x; 
+        const union gm_vct3i* max_x; 
+        const union gm_vct3i* min_y; 
+        const union gm_vct3i* max_y; 
+        const union gm_vct3i* min_z; 
+        const union gm_vct3i* max_z;
     };
-    const gm_vct3i* data[6];
+    const union gm_vct3i* data[6];
 };
 
 struct gm_convex_hull {
     cvector_vector_type(struct gm_trianglei) tris;
 };
 
-#define GM_EL(r,c) r*GM_DIMS+c
+#define GM_EL(r,c) r*3+c
 static const int8_t _ortho_bases[24][9] = {
     { 1, 0, 0, 0, 1, 0, 0, 0, 1},//0
     { 0,-1, 0, 1, 0, 0, 0, 0, 1},//1
@@ -131,53 +182,19 @@ enum {
     cvBackDownLeft3=21,
 };
 
-/*
-gm_vct3i vct = {1,1,1};
-GM_VCT3_ROTATE(vct,i);
+#define GM_VCT2_DOT(a,b) ((a).x * (b).x + (a).y * (b).y)
+#define GM_VCT2_LENGTH_SQUARED(v) GM_VCT2_DOT(v,v)
+#define GM_VCT2_LENGTH(v) sqrt(GM_VCT2_LENGTH_SQUARED(v))
+#define GM_VCT2_DISTANCE_SQUARED(v1,v2) ((((v1).x-(v2).x)*((v1).x-(v2).x))+(((v1).y-(v2).y)*((v1).y-(v2).y))) 
+#define GM_VCT2_DISTANCE(v1,v2) sqrt(GM_VCT2_DISTANCE_SQUARED(v1,v2)) 
 
-num=0   [x=1 y=1 z=1]
-num=5   [x=1 y=1 z=1]
-num=21  [x=1 y=1 z=1]
-
-num=1   [x=1 y=-1 z=1]
-num=12  [x=1 y=-1 z=1]
-num=20  [x=1 y=-1 z=1]
-
-num=2   [x=-1 y=-1 z=1]
-num=15  [x=-1 y=-1 z=1]
-num=17  [x=-1 y=-1 z=1]
-
-num=3   [x=-1 y=1 z=1]
-num=6   [x=-1 y=1 z=1]
-num=16  [x=-1 y=1 z=1]
-
-num=4   [x=1 y=1 z=-1]
-num=9   [x=1 y=1 z=-1]
-num=22  [x=1 y=1 z=-1]
-
-num=7   [x=-1 y=1 z=-1]
-num=10  [x=-1 y=1 z=-1]
-num=19  [x=-1 y=1 z=-1]
-
-num=8   [x=1 y=-1 z=-1]
-num=13  [x=1 y=-1 z=-1]
-num=23  [x=1 y=-1 z=-1]
-
-num=11  [x=-1 y=-1 z=-1]
-num=14  [x=-1 y=-1 z=-1]
-num=18  [x=-1 y=-1 z=-1]
-
-0 1 2 3 4  7 8  11
-*/
-
-
-#define GM_VCT3_DOT(a,b) ((a).x * (b).x + (a).y * (b).y + (a).z * (b).z)
+#define GM_VCT3_DOT(a,b) (GM_VCT2_DOT(a,b) + (a).z * (b).z)
 #define GM_VCT3_LENGTH_SQUARED(v) GM_VCT3_DOT(v,v)
 #define GM_VCT3_LENGTH(v) sqrt(GM_VCT3_LENGTH_SQUARED(v))
 #define GM_VCT3_DISTANCE_SQUARED(v1,v2) ((((v1).x-(v2).x)*((v1).x-(v2).x))+(((v1).y-(v2).y)*((v1).y-(v2).y))+(((v1).z-(v2).z)*((v1).z-(v2).z))) 
 #define GM_VCT3_DISTANCE(v1,v2) sqrt(GM_VCT3_DISTANCE_SQUARED(v1,v2)) 
 
-#define GM_VCT3_ROTATE(v, num){                                 \
+#define GM_VCT3I_ROTATE(v, num){                                \
     const int8_t* matrix = (const int8_t*)&_ortho_bases[(num)]; \
     typeof(v) result;                                           \
                                                                 \
@@ -194,25 +211,37 @@ num=18  [x=-1 y=-1 z=-1]
     memcpy(&(v),&result,sizeof(v));                             \
 }   
 
-#define GM_VCT3_ADD(result_vector, other_vector){         \
+#define GM_VCT2_ADD(result_vector, other_vector){         \
     (result_vector).data[0] += (other_vector).data[0];    \
     (result_vector).data[1] += (other_vector).data[1];    \
+}
+
+#define GM_VCT2_SUBST(result_vector, other_vector){       \
+    (result_vector).data[0] -= (other_vector).data[0];    \
+    (result_vector).data[1] -= (other_vector).data[1];    \
+}
+
+#define GM_VCT2_MULT(result_vector, a){ \
+    (result_vector).data[0] *= (a);     \
+    (result_vector).data[1] *= (a);     \
+}
+
+#define GM_VCT3_ADD(result_vector, other_vector){         \
+    GM_VCT2_ADD(result_vector, other_vector);             \
     (result_vector).data[2] += (other_vector).data[2];    \
 }
 
-#define GM_VCT3_SUBST(result_vector, other_vector){         \
-    (result_vector).data[0] -= (other_vector).data[0];    \
-    (result_vector).data[1] -= (other_vector).data[1];    \
+#define GM_VCT3_SUBST(result_vector, other_vector){       \
+    GM_VCT2_SUBST(result_vector, other_vector);           \
     (result_vector).data[2] -= (other_vector).data[2];    \
 }
 
 #define GM_VCT3_MULT(result_vector, a){ \
-    (result_vector).data[0] *= (a);     \
-    (result_vector).data[1] *= (a);     \
+    GM_VCT2_MULT(result_vector,a);      \
     (result_vector).data[2] *= (a);     \
 }
 
-#define GM_VCT3_EQ(a,b) (memcmp(&(a),&(b),sizeof(a))==0)
+#define GM_VCT_EQ(a,b) (memcmp(&(a),&(b),sizeof(a))==0)
 
 #define GM_VCT3_CROSS(result_vector, b){               \
   typeof(result_vector) tmp = result_vector;           \
@@ -222,14 +251,14 @@ num=18  [x=-1 y=-1 z=-1]
 }
 
 #define GM_VCT3_DISTANCE_TO_LINE(ret, err, point, line_point1, line_point2){ \
-    gm_vct3i tmp_v3 = (line_point2);                                         \
+    union gm_vct3i tmp_v3 = (line_point2);                                   \
     GM_VCT3_SUBST(tmp_v3, (line_point1));                                    \
     double v3_len = GM_VCT3_LENGTH(tmp_v3);                                  \
     if (v3_len == 0){                                                        \
         err = 1;                                                             \
     } else {                                                                 \
-        gm_vct3i tmp_v1 = (point);                                           \
-        gm_vct3i tmp_v2 = (point);                                           \
+        union gm_vct3i tmp_v1 = (point);                                     \
+        union gm_vct3i tmp_v2 = (point);                                     \
         GM_VCT3_SUBST(tmp_v1, (line_point1));                                \
         GM_VCT3_SUBST(tmp_v2, (line_point2));                                \
         GM_VCT3_CROSS(tmp_v1,tmp_v2);                                        \
@@ -238,19 +267,25 @@ num=18  [x=-1 y=-1 z=-1]
 }
 
 #define GM_VCT3_DISTANCE_TO_LINE_SQUARED(ret, err, point, line_point1, line_point2){ \
-    gm_vct3i tmp_v3 = (line_point2);                                         \
+    union gm_vct3i tmp_v3 = (line_point2);                                   \
     GM_VCT3_SUBST(tmp_v3, (line_point1));                                    \
-    GM_TYPE v3_len = GM_VCT3_LENGTH_SQUARED(tmp_v3);                         \
+    int32_t v3_len = GM_VCT3_LENGTH_SQUARED(tmp_v3);                         \
     if (v3_len == 0){                                                        \
         err = 1;                                                             \
     } else {                                                                 \
-        gm_vct3i tmp_v1 = (point);                                           \
-        gm_vct3i tmp_v2 = (point);                                           \
+        union gm_vct3i tmp_v1 = (point);                                     \
+        union gm_vct3i tmp_v2 = (point);                                     \
         GM_VCT3_SUBST(tmp_v1, (line_point1));                                \
         GM_VCT3_SUBST(tmp_v2, (line_point2));                                \
         GM_VCT3_CROSS(tmp_v1,tmp_v2);                                        \
         ret = GM_VCT3_LENGTH_SQUARED(tmp_v1) / v3_len;                       \
     }                                                                        \
+}
+
+#define GM_VCT2_NORMALIZE(v){        \
+    double len = GM_VCT2_LENGTH(v);  \
+    (v).x /= len;                    \
+    (v).y /= len;                    \
 }
 
 #define GM_VCT3_NORMALIZE(v){        \
@@ -260,20 +295,20 @@ num=18  [x=-1 y=-1 z=-1]
     (v).z /= len;                    \
 }
 
-#define GM_TRIANGLEI_DIST(ret, tri, point){                 \
-    typeof(point) tmp_v = (point);                          \
-    GM_VCT3_SUBST(tmp_v,  (tri).p[0]);                      \
-    gm_vct3f tmp_vf = {.x=tmp_v.x, .y=tmp_v.y, .z=tmp_v.z}; \
-    (ret) = GM_VCT3_DOT((tri).normal, tmp_vf);              \
+#define GM_TRIANGLEI_DIST(ret, tri, point){                         \
+    typeof(point) tmp_v = (point);                                  \
+    GM_VCT3_SUBST(tmp_v,  (tri).p[0]);                              \
+    union gm_vct3f tmp_vf = {.x=tmp_v.x, .y=tmp_v.y, .z=tmp_v.z};   \
+    (ret) = GM_VCT3_DOT((tri).normal, tmp_vf);                      \
 }
 
 #define GM_TRIANGLEI_CALC_NORM(tri){    \
-    gm_vct3i tmp_v1 = (tri).p[0];       \
-    gm_vct3i tmp_v2 = (tri).p[1];       \
+    union gm_vct3i tmp_v1 = (tri).p[0]; \
+    union gm_vct3i tmp_v2 = (tri).p[1]; \
     GM_VCT3_SUBST(tmp_v1, (tri).p[1]);  \
     GM_VCT3_SUBST(tmp_v2, (tri).p[2]);  \
     GM_VCT3_CROSS(tmp_v1, tmp_v2);      \
-    (tri).normal = (gm_vct3f){          \
+    (tri).normal = (union gm_vct3f){    \
         .x=tmp_v1.x,                    \
         .y=tmp_v1.y,                    \
         .z=tmp_v1.z,                    \
@@ -281,53 +316,13 @@ num=18  [x=-1 y=-1 z=-1]
     GM_VCT3_NORMALIZE((tri).normal);    \
 }
 
-#define GM_RECT_EXTEND(rect, value){            \
-    gm_vct3i vct = {(value),(value),(value)};   \
-    GM_VCT3_SUBST((rect).min, vct);             \
-    GM_VCT3_ADD((rect).max, vct);               \
+#define GM_RECT_EXTEND(rect, value){                \
+    union gm_vct3i vct = {(value),(value),(value)}; \
+    GM_VCT3_SUBST((rect).min, vct);                 \
+    GM_VCT3_ADD((rect).max, vct);                   \
 }
 
-void gm_update_convex_hull(struct gm_convex_hull* ch, const cvector_vector_type(gm_vct3i) points, const union gm_extremes* extremes);
-bool gm_is_vct3i_inside_convex_hull(const struct gm_convex_hull* ch, const gm_vct3i* point);
-
-
-#ifdef DEBUG
-#include <stdio.h>
-
-#define GM_TRACE printf("%s:%d ",__MAPYR__FILENAME__,__LINE__)
-
-#define GM_PRINT_VCT3I(vector)          \
-printf("[x=%d y=%d z=%d]",              \
-vector.x,                               \
-vector.y,                               \
-vector.z);
-
-#define GM_PRINT_VCT3F(vector)          \
-printf("[x=%.2f y=%.2f z=%.2f]",        \
-vector.x,                               \
-vector.y,                               \
-vector.z);
-
-#define GM_PRINT_SEGMENTI(segment)      \
-GM_PRINT_VCT3I(segment.start)           \
-GM_PRINT_VCT3I(segment.end)
-
-#define GM_PRINT_TRIANGLE(triangle)     \
-for(int i =0; i<3; i++){                \
-    GM_PRINT_VCT3I(triangle.p[i])       \
-}                                       \
-                                        \
-printf(" normal=");                     \
-GM_PRINT_VCT3F(triangle.normal);
-
-#define GM_PRINT_CONVEX_PLANE(plane)                \
-GM_PRINT_TRIANGLE(plane.triangle)                   \
-printf(" outside_points=");                         \
-cvector_iterator(gm_vct3i) pnt;                     \
-cvector_for_each_in(pnt,(plane.outside_points)){    \
-    GM_PRINT_VCT3I((*pnt));                         \
-}
-
-#endif
+void gm_update_convex_hull(struct gm_convex_hull* ch, const cvector_vector_type(union gm_vct3i) points, const union gm_extremes* extremes);
+bool gm_is_vct3i_inside_convex_hull(const struct gm_convex_hull* ch, const union gm_vct3i* point);
 
 #endif

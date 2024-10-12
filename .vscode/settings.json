@@ -10,6 +10,19 @@
         "cstdlib": "c",
         "array": "cpp",
         "string": "cpp",
-        "string_view": "cpp"
+        "string_view": "cpp",
+        "geometry.h": "c",
+        "wchar.h": "c",
+        "string.h": "c",
+        "random": "c",
+        "functional": "c",
+        "optional": "c",
+        "ratio": "c",
+        "system_error": "c",
+        "tuple": "c",
+        "type_traits": "c",
+        "utility": "c",
+        "istream": "c",
+        "ostream": "c"
     }
 }

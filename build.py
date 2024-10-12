@@ -2,17 +2,18 @@
 REQUIRED_VERSION = '0.4.2'
 
 def config() -> list["mapyr.ProjectConfig"]:
-    
+
     result = []
     p = mapyr.ProjectConfig()
 
     p.OUT_FILE  = "bin/traffic"
     p.COMPILER  = "clang"
     p.CFLAGS    = ["-g","-O0"]
-    p.INCLUDE_DIRS = ['include']
+
     #p.CFLAGS    = ["-Ofast","-flto"]
     #p.LINK_EXE_FLAGS = ["-flto"]
-    p.VSCODE_CPPTOOLS_CONFIG = True
+
+    p.INCLUDE_DIRS = ['include']
 
     p.SUBPROJECTS = [
         'lib/shaderutils',
@@ -33,12 +34,18 @@ def config() -> list["mapyr.ProjectConfig"]:
         'glew',
     ]
 
+    p.LIBS = [
+        'm'
+    ]
+
+    p.VSCODE_CPPTOOLS_CONFIG = True
+
     result.append(p)
     return result
 
 #-----------FOOTER-----------
 # https://github.com/AIG-Livny/mapyr.git
-if __name__ == "__main__": 
+if __name__ == "__main__":
     try:
         import mapyr
     except:

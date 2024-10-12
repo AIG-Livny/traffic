@@ -11,44 +11,113 @@
 
 // CAMERA
 struct Camera {
-    union gm_vct2f position;
+    union gm_dvec2 position;
     double rotation;
     double zoom;
-    union gm_vct2i viewport_size;
-    union gm_mat4f projection;
-    union gm_mat4f view;
-    union gm_mat4f unproject;
+    union gm_ivec2 viewport_size;
+    union gm_fmat4 projection;
+    union gm_fmat4 view;
+    union gm_fmat4 unproject;
 };
-/*
 
-class Camera {
-    private:
-        glm::vec2       position        = {0,0};
-        float           rotation        = 0;
-        float           zoom            = 1;
-        glm::ivec2      viewport_size   = {640,480};
+void camera_update_matrices(struct Camera* cam) {
+    union gm_dvec2 tmp = GM_DVEC2_FROM_VEC2(cam->viewport_size);
+    GM_VEC2_DIV(tmp,2);
+    GM_VEC2_MULT(tmp,cam->zoom);
+    GM_MAT4_ORTHO(cam->projection, -tmp.x, tmp.x, -tmp.y, tmp.y, 0.0f, 1000.0f);
+    union gm_fvec3 position =  GM_FVEC3_FROM_VEC2(cam->position, 1);
+    union gm_fvec3 target   =  GM_FVEC3_FROM_VEC2(cam->position, 0);
+    union gm_fvec3 up       =  {0,1,0};
+    GM_FMAT4_LOOK_AT(cam->view, position, target, up);
 
-        glm::mat4       projection;
-        glm::mat4       view;
-        glm::mat4       unproject;
+    cam->unproject = cam->projection;
+    GM_MAT4_MULT(cam->projection, cam->view);
+    GM_MAT4_INVERSE(cam->unproject);
+}
 
-        void updateCameraMatrices();
+struct Camera* camera_create(union gm_ivec2* viewport_size) {
+    struct Camera* newcam = malloc(sizeof(struct Camera));
+    if ( not newcam ) {
+        // ERROR
+    }
+    newcam->viewport_size = *viewport_size;
+    camera_update_matrices(newcam);
+    return newcam;
+}
 
-    public:
-        Camera(const glm::ivec2& viewport_size);
+void camera_free(struct Camera* cam){
+    free(cam);
+}
 
-        void move(const glm::vec2& pos);
-        void scale(float zoom);
-
-        [[nodiscard]] float getZoom() const { return zoom; }
-        [[nodiscard]] const glm::vec2& getPosition() const { return position; }
-        [[nodiscard]] const glm::ivec2& getViewportSize() const { return viewport_size; }
-        [[nodiscard]] const glm::mat4& getProjectionMatrix() const { return projection; }
-        [[nodiscard]] const glm::mat4& getViewMatrix() const { return view; }
-        [[nodiscard]] const glm::mat4& getUnprojectMatrix() const { return unproject; }
-};
-*/
 // END CAMERA
+
+// GRAPHICS
+struct graphics_base {
+    GLuint vertex_array_object;
+    GLuint vertex_buffer_object;
+    unsigned int vertices_count;
+};
+
+void use_shader(GLuint handler, const struct Camera* cam){
+    glUseProgram(handler);
+    glUniformMatrix4fv(glGetUniformLocation(handler, "VIEW"), 1, GL_FALSE, &cam->view.data[0]);
+    glUniformMatrix4fv(glGetUniformLocation(handler, "PROJECTION"), 1, GL_FALSE, &cam->projection.data[0]);
+    glUniform1f(glGetUniformLocation(handler, "ZOOM"), cam->zoom);
+}
+
+void base_free(struct graphics_base* base){
+    glDeleteBuffers(1, &base->vertex_buffer_object);
+    glDeleteVertexArrays(1, &base->vertex_array_object);
+    free(base);
+}
+
+void base_genVBAO(struct graphics_base* base){
+    glGenVertexArrays(1, &base->vertex_array_object);
+    glGenBuffers(1, &base->vertex_buffer_object);
+    glBindVertexArray(base->vertex_array_object);
+    glBindBuffer(GL_ARRAY_BUFFER, base->vertex_buffer_object);
+}
+
+/*
+    Not only just enum, also it's mask for line graphics
+*/
+enum LineType {
+    SOLID   = 0xFFFF,
+    DOTTED  = 0xAAAA,
+    DASHED  = 0b1100001111000011,
+    DOTDASH = 0xAFAF,
+};
+
+struct GPUSegment {
+    union gm_dvec2 p1;
+    union gm_dvec2 p2;
+    unsigned int line_type;
+    union gm_fvec4 color;
+    float width;
+};
+
+void segment_draw(const struct graphics_base* base){
+    glBindVertexArray(base->vertex_array_object);
+    glDrawArrays(GL_POINTS, 0, 1);
+}
+
+void segment_load_GPU(struct graphics_base* base, struct GPUSegment* segment){
+    base_genVBAO(base);
+
+    glBufferData(GL_ARRAY_BUFFER, sizeof(segment), &segment, GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 2, GL_DOUBLE, GL_FALSE, sizeof(segment), (void*)0);
+    glVertexAttribPointer(1, 2, GL_DOUBLE, GL_FALSE, sizeof(segment), (void*)offsetof(struct GPUSegment,p2));
+    glVertexAttribIPointer(2, 1, GL_UNSIGNED_INT,   sizeof(segment), (void*)offsetof(struct GPUSegment,line_type));
+    glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, sizeof(segment), (void*)offsetof(struct GPUSegment,color));
+    glVertexAttribPointer(4, 1, GL_FLOAT, GL_FALSE, sizeof(segment), (void*)offsetof(struct GPUSegment,width));
+    glEnableVertexAttribArray(0);
+    glEnableVertexAttribArray(1);
+    glEnableVertexAttribArray(2);
+    glEnableVertexAttribArray(3);
+    glEnableVertexAttribArray(4);
+}
+// END GRAPHICS
 
 void keyboard( GLFWwindow* window, int key, int scancode, int action, int mods ) {
     if ( key == GLFW_KEY_ESCAPE && action == GLFW_PRESS ) {
@@ -71,7 +140,9 @@ int main( int argc, char **argv ) {
     glfwWindowHint( GLFW_VISIBLE, GL_FALSE );
     glfwWindowHint( GLFW_RESIZABLE, GL_FALSE );
 
-    GLFWwindow* window = glfwCreateWindow( 800, 600, argv[0], NULL, NULL );
+    union gm_ivec2 window_size = {800, 600};
+
+    GLFWwindow* window = glfwCreateWindow( window_size.x, window_size.y, argv[0], NULL, NULL );
     if ( not window ) {
         glfwTerminate();
         return EXIT_FAILURE;
@@ -83,19 +154,22 @@ int main( int argc, char **argv ) {
     //glfwSetFramebufferSizeCallback( window, reshape );
     //glfwSetWindowRefreshCallback( window, display );
     glfwSetKeyCallback( window, keyboard );
-    
+
     glewExperimental = GL_TRUE;
     GLenum err = glewInit();
     if ( GLEW_OK != err ){
         fprintf( stderr, "Error: %s\n", glewGetErrorString(err) );
         return EXIT_FAILURE;
     }
-    
+
     glfwShowWindow( window );
-    
+
     // INIT
+    struct Camera* cam = camera_create(&window_size);
+    GLuint shader;
+    su_load_shader(&shader, "../shaders/segment");
     // END INIT
-    
+
     while ( not glfwWindowShouldClose( window ) ) {
         glfwWaitEvents();
 
@@ -105,7 +179,7 @@ int main( int argc, char **argv ) {
         // RENDER
         // END RENDER
 
-        glfwSwapBuffers( window );    
+        glfwSwapBuffers( window );
     }
     return EXIT_SUCCESS;
 }

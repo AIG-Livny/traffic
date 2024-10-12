@@ -1,0 +1,16 @@
+{
+    "VsCodeTaskButtons.showCounter": false,
+    "VsCodeTaskButtons.tasks": [
+        {
+            "label": "run",
+            "task": "run",
+        },
+        {
+            "label": "clean",
+            "task": "clean"
+        }
+    ],
+    "files.associations": {
+        "test.h": "c"
+    }
+}

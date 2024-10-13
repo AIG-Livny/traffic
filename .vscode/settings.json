@@ -35,6 +35,11 @@
         "graphics.h": "c",
         "shaderutils.h": "c",
         "glew.h": "c",
-        "cvector_utils.h": "c"
+        "cvector_utils.h": "c",
+        "*.ipp": "c",
+        "deque": "c",
+        "hash_map": "c",
+        "bitset": "c",
+        "initializer_list": "c"
     }
 }

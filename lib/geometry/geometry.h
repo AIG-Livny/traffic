@@ -275,6 +275,12 @@ enum {
     (result_vector).data[1] /= (a);     \
 }
 
+#define GM_FVEC2_FROM_VEC2(vct2)    \
+(union gm_fvec2){                   \
+    .x = (vct2).x,                  \
+    .y = (vct2).y                   \
+}
+
 #define GM_DVEC2_FROM_VEC2(vct2)    \
 (union gm_dvec2){                   \
     .x = (vct2).x,                  \

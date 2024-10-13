@@ -7,9 +7,11 @@
 #include "shaderutils.h"
 
 GLuint segment_shader;
+GLuint grid_shader;
 
 void g_init(){
     su_load_shader(&segment_shader, "shaders/segment");
+    su_load_shader(&grid_shader, "shaders/grid2d");
 }
 
 // CAMERA
@@ -66,6 +68,7 @@ void g_camera_zoom(struct g_camera* cam, double delta){
 
 // END CAMERA
 
+// GRAPHIC OBJECT
 struct g_gpu_object {
     GLuint vertex_array_object;
     GLuint vertex_buffer_object;
@@ -92,9 +95,7 @@ void g_gpu_object_make_VBAO(struct g_gpu_object* obj){
     glBindBuffer(GL_ARRAY_BUFFER, obj->vertex_buffer_object);
 }
 
-void g_segment_draw(const struct g_gpu_object* obj){
-
-}
+// END GRAPHIC OBJECT
 
 struct g_manager {
     cvector(struct g_gpu_object)     dots;
@@ -139,13 +140,70 @@ struct g_gpu_object* g_add_segment(struct g_manager* man, struct g_segment* segm
     return cvector_back(man->segments);
 }
 
+struct g_gpu_object* g_add_grid(struct g_manager* man, struct g_grid* grid){
+    float half_width = grid->size.x/2;
+    float half_height = grid->size.y/2;
+
+    cvector(union gm_fvec2) vertices = NULL;
+
+    for(float i=-half_width; i<half_width; i+=grid->step){
+        cvector_push_back(vertices,((union gm_fvec2){i,-half_height}));
+        cvector_push_back(vertices,((union gm_fvec2){i,half_height}));
+    }
+
+    for(float i=-half_height; i<half_height; i+=grid->step){
+        cvector_push_back(vertices,((union gm_fvec2){-half_width,i}));
+        cvector_push_back(vertices,((union gm_fvec2){half_width,i}));
+    }
+
+    struct g_gpu_object newobj;
+    g_gpu_object_make_VBAO(&newobj);
+
+    struct Data {
+        union gm_fvec4 color;
+        unsigned int type;
+    } data = {
+        .color = grid->color,
+        .type  = grid->line_type
+    };
+
+    glBufferData(GL_ARRAY_BUFFER, (sizeof(union gm_fvec2)* cvector_size(vertices)) + sizeof(data), &data, GL_STATIC_DRAW);
+    glBufferSubData(GL_ARRAY_BUFFER, sizeof(data), (sizeof(union gm_fvec2)*cvector_size(vertices)), vertices);
+
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(union gm_fvec2), (void*)(sizeof(union gm_fvec4) + sizeof(unsigned int)));
+
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(union gm_fvec4), (void*)0);
+    glVertexAttribDivisor(1,1);
+
+    glEnableVertexAttribArray(2);
+    glVertexAttribIPointer(2, 1, GL_UNSIGNED_INT,   sizeof(int), (void*)offsetof(struct Data,type));
+    glVertexAttribDivisor(2,1);
+
+    newobj.vertices_count = cvector_size(vertices);
+
+
+    cvector_push_back(man->grids, newobj);
+    return cvector_back(man->grids);
+}
+
 void g_draw(struct g_manager* man, struct g_camera* cam) {
+    cvector_iterator(struct g_gpu_object) obj;
+
     if ( cvector_size(man->segments) ) {
         g_use_shader(segment_shader, cam);
-        cvector_iterator(struct g_gpu_object) obj;
         cvector_for_each_in(obj, man->segments){
             glBindVertexArray(obj->vertex_array_object);
             glDrawArrays(GL_POINTS, 0, 1);
+        }
+    }
+
+    if ( cvector_size(man->grids) ) {
+        g_use_shader(grid_shader, cam);
+        cvector_for_each_in(obj, man->grids){
+            glBindVertexArray(obj->vertex_array_object);
+            glDrawArrays(GL_LINES, 0, obj->vertices_count);
         }
     }
 }

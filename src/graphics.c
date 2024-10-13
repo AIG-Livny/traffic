@@ -8,10 +8,12 @@
 
 GLuint segment_shader;
 GLuint grid_shader;
+GLuint line_shader;
 
 void g_init(){
     su_load_shader(&segment_shader, "shaders/segment");
     su_load_shader(&grid_shader, "shaders/grid2d");
+    su_load_shader(&line_shader, "shaders/line");
 }
 
 // CAMERA
@@ -188,6 +190,28 @@ struct g_gpu_object* g_add_grid(struct g_manager* man, struct g_grid* grid){
     return cvector_back(man->grids);
 }
 
+struct g_gpu_object* g_add_line(struct g_manager* man, struct g_line* line){
+    struct g_gpu_object newobj;
+
+    g_gpu_object_make_VBAO(&newobj);
+
+    glBufferData(GL_ARRAY_BUFFER, sizeof(struct g_line), line, GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 2, GL_DOUBLE, GL_FALSE, sizeof(struct g_line), (void*)0);
+    glVertexAttribPointer(1, 2, GL_DOUBLE, GL_FALSE, sizeof(struct g_line), (void*)offsetof(struct g_line,dir));
+    glVertexAttribIPointer(2, 1, GL_UNSIGNED_INT,   sizeof(struct g_line), (void*)offsetof(struct g_line,line_type));
+    glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, sizeof(struct g_line), (void*)offsetof(struct g_line,color));
+    glVertexAttribPointer(4, 1, GL_FLOAT, GL_FALSE, sizeof(struct g_line), (void*)offsetof(struct g_line,width));
+    glEnableVertexAttribArray(0);
+    glEnableVertexAttribArray(1);
+    glEnableVertexAttribArray(2);
+    glEnableVertexAttribArray(3);
+    glEnableVertexAttribArray(4);
+
+    cvector_push_back(man->lines, newobj);
+    return cvector_back(man->lines);
+}
+
 void g_draw(struct g_manager* man, struct g_camera* cam) {
     cvector_iterator(struct g_gpu_object) obj;
 
@@ -204,6 +228,14 @@ void g_draw(struct g_manager* man, struct g_camera* cam) {
         cvector_for_each_in(obj, man->grids){
             glBindVertexArray(obj->vertex_array_object);
             glDrawArrays(GL_LINES, 0, obj->vertices_count);
+        }
+    }
+
+    if ( cvector_size(man->lines) ) {
+        g_use_shader(line_shader, cam);
+        cvector_for_each_in(obj, man->lines){
+            glBindVertexArray(obj->vertex_array_object);
+            glDrawArrays(GL_POINTS, 0, 1);
         }
     }
 }

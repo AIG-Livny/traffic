@@ -82,6 +82,22 @@ int main( int argc, char **argv ) {
         .line_type = g_ltSOLID,
     });
 
+    //X
+    g_add_line(man,&(struct g_line){
+        .pos = {0,0},
+        .dir = {-1,0},
+        .color = {0.5,0.0,0.0,0.3},
+        .width = 2,
+    });
+
+    //Y
+    g_add_line(man,&(struct g_line){
+        .pos = {0,0},
+        .dir = {0,1},
+        .color = {0.0,0.5,0.0,0.3},
+        .width = 2,
+    });
+
     // END INIT
 
     while ( not glfwWindowShouldClose( window ) ) {

@@ -25,6 +25,14 @@ struct g_grid {
     unsigned int line_type;
 };
 
+struct g_line {
+    union gm_dvec2 pos;
+    union gm_dvec2 dir;
+    unsigned int line_type;
+    union gm_fvec4 color;
+    float width;
+};
+
 void g_init();
 
 struct g_camera* g_camera_create(union gm_ivec2* viewport_size);
@@ -36,6 +44,7 @@ struct g_manager* g_manager_create();
 void g_manager_free(struct g_manager* man);
 struct g_gpu_object* g_add_segment(struct g_manager* man, struct g_segment* segment);
 struct g_gpu_object* g_add_grid(struct g_manager* man, struct g_grid* grid);
+struct g_gpu_object* g_add_line(struct g_manager* man, struct g_line* line);
 
 void g_draw(struct g_manager* man, struct g_camera* cam);
 

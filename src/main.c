@@ -12,12 +12,12 @@
 // CAMERA
 struct Camera {
     union gm_dvec2 position;
-    double rotation;
+    float rotation;
     double zoom;
     union gm_ivec2 viewport_size;
     union gm_fmat4 projection;
     union gm_fmat4 view;
-    union gm_fmat4 unproject;
+    //union gm_fmat4 unproject;
 };
 
 void camera_update_matrices(struct Camera* cam) {
@@ -30,9 +30,9 @@ void camera_update_matrices(struct Camera* cam) {
     union gm_fvec3 up       =  {0,1,0};
     GM_FMAT4_LOOK_AT(cam->view, position, target, up);
 
-    cam->unproject = cam->projection;
-    GM_MAT4_MULT(cam->projection, cam->view);
-    GM_MAT4_INVERSE(cam->unproject);
+    //cam->unproject = cam->projection;
+    //GM_MAT4_MULT(cam->projection, cam->view);
+    //GM_MAT4_INVERSE(cam->unproject);
 }
 
 struct Camera* camera_create(union gm_ivec2* viewport_size) {
@@ -40,7 +40,9 @@ struct Camera* camera_create(union gm_ivec2* viewport_size) {
     if ( not newcam ) {
         // ERROR
     }
+    memset(newcam,0,sizeof(struct Camera));
     newcam->viewport_size = *viewport_size;
+    newcam->zoom = 1.0f;
     camera_update_matrices(newcam);
     return newcam;
 }
@@ -104,13 +106,13 @@ void segment_draw(const struct graphics_base* base){
 void segment_load_GPU(struct graphics_base* base, struct GPUSegment* segment){
     base_genVBAO(base);
 
-    glBufferData(GL_ARRAY_BUFFER, sizeof(segment), &segment, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(struct GPUSegment), segment, GL_STATIC_DRAW);
 
-    glVertexAttribPointer(0, 2, GL_DOUBLE, GL_FALSE, sizeof(segment), (void*)0);
-    glVertexAttribPointer(1, 2, GL_DOUBLE, GL_FALSE, sizeof(segment), (void*)offsetof(struct GPUSegment,p2));
-    glVertexAttribIPointer(2, 1, GL_UNSIGNED_INT,   sizeof(segment), (void*)offsetof(struct GPUSegment,line_type));
-    glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, sizeof(segment), (void*)offsetof(struct GPUSegment,color));
-    glVertexAttribPointer(4, 1, GL_FLOAT, GL_FALSE, sizeof(segment), (void*)offsetof(struct GPUSegment,width));
+    glVertexAttribPointer(0, 2, GL_DOUBLE, GL_FALSE, sizeof(struct GPUSegment), (void*)0);
+    glVertexAttribPointer(1, 2, GL_DOUBLE, GL_FALSE, sizeof(struct GPUSegment), (void*)offsetof(struct GPUSegment,p2));
+    glVertexAttribIPointer(2, 1, GL_UNSIGNED_INT,   sizeof(struct GPUSegment), (void*)offsetof(struct GPUSegment,line_type));
+    glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, sizeof(struct GPUSegment), (void*)offsetof(struct GPUSegment,color));
+    glVertexAttribPointer(4, 1, GL_FLOAT, GL_FALSE, sizeof(struct GPUSegment), (void*)offsetof(struct GPUSegment,width));
     glEnableVertexAttribArray(0);
     glEnableVertexAttribArray(1);
     glEnableVertexAttribArray(2);
@@ -151,6 +153,9 @@ int main( int argc, char **argv ) {
     glfwMakeContextCurrent( window );
     glfwSwapInterval(0);
 
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glEnable(GL_BLEND);
+
     //glfwSetFramebufferSizeCallback( window, reshape );
     //glfwSetWindowRefreshCallback( window, display );
     glfwSetKeyCallback( window, keyboard );
@@ -167,19 +172,35 @@ int main( int argc, char **argv ) {
     // INIT
     struct Camera* cam = camera_create(&window_size);
     GLuint shader;
-    su_load_shader(&shader, "../shaders/segment");
+    su_load_shader(&shader, "/home/ivan/dev/traffic/shaders/segment");
+    struct graphics_base base;
+    struct GPUSegment segment = {
+        .p1 = {-100,-100},
+        .p2 = {100,100},
+        .color = {0,0,1,0.5},
+        .line_type = SOLID,
+        .width = 2.0f
+    };
+
+    segment_load_GPU(&base, &segment);
     // END INIT
 
     while ( not glfwWindowShouldClose( window ) ) {
         glfwWaitEvents();
 
         glClearColor(0.40,0.40,0.45,1.00);
-        glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
+        glClear( GL_COLOR_BUFFER_BIT );
 
         // RENDER
+        use_shader(shader, cam);
+        segment_draw(&base);
+
+        //cam->zoom -= 1;
+        //camera_update_matrices(cam);
         // END RENDER
 
         glfwSwapBuffers( window );
     }
+    camera_free(cam);
     return EXIT_SUCCESS;
 }

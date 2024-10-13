@@ -1,6 +1,10 @@
 {
     "activitusbar.views":[
         {
+            "name": "task.clean",
+            "codicon": "trash"
+        },
+        {
             "name": "task.run",
             "codicon": "debug-start"
         }
@@ -25,6 +29,12 @@
         "istream": "c",
         "ostream": "c",
         "vector": "c",
-        "glfw3.h": "c"
+        "glfw3.h": "c",
+        "came": "c",
+        "fontconfig.h": "c",
+        "graphics.h": "c",
+        "shaderutils.h": "c",
+        "glew.h": "c",
+        "cvector_utils.h": "c"
     }
 }

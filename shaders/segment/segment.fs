@@ -9,7 +9,7 @@ in float dist;
 void main(){
    uint bit = uint(round(dist)) & 15U;
     if ((fs_pattern & (1U<<bit)) == 0U)
-        discard; 
+        discard;
 
    gl_FragColor = fs_color;
 }

@@ -9,11 +9,15 @@
 GLuint segment_shader;
 GLuint grid_shader;
 GLuint line_shader;
+GLuint arc_shader;
+GLuint dot_shader;
 
 void g_init(){
     su_load_shader(&segment_shader, "shaders/segment");
     su_load_shader(&grid_shader, "shaders/grid2d");
     su_load_shader(&line_shader, "shaders/line");
+    su_load_shader(&arc_shader, "shaders/arc");
+    su_load_shader(&dot_shader, "shaders/dot");
 }
 
 // CAMERA
@@ -117,6 +121,12 @@ struct g_manager* g_manager_create(){
 }
 
 void g_manager_free(struct g_manager* man){
+    cvector_iterator(struct g_gpu_object) obj;
+    cvector_for_each_in(obj, man->segments) { g_gpu_object_free(obj);}
+    cvector_for_each_in(obj, man->grids)    { g_gpu_object_free(obj);}
+    cvector_for_each_in(obj, man->arcs)     { g_gpu_object_free(obj);}
+    cvector_for_each_in(obj, man->dots)     { g_gpu_object_free(obj);}
+    cvector_for_each_in(obj, man->lines)    { g_gpu_object_free(obj);}
     free(man);
 }
 
@@ -212,6 +222,51 @@ struct g_gpu_object* g_add_line(struct g_manager* man, struct g_line* line){
     return cvector_back(man->lines);
 }
 
+struct g_gpu_object* g_add_arc(struct g_manager* man, struct g_arc* arc){
+    struct g_gpu_object newobj;
+
+    g_gpu_object_make_VBAO(&newobj);
+
+    glBufferData(GL_ARRAY_BUFFER, sizeof(struct g_arc), arc, GL_STATIC_DRAW);
+    glVertexAttribPointer(0, 2, GL_DOUBLE, GL_FALSE, sizeof(struct g_arc), (void*)0);
+    glVertexAttribPointer(1, 1, GL_DOUBLE, GL_FALSE, sizeof(struct g_arc), (void*)offsetof(struct g_arc,radius));
+    glVertexAttribPointer(2, 1, GL_DOUBLE, GL_FALSE, sizeof(struct g_arc), (void*)offsetof(struct g_arc,start_degree));
+    glVertexAttribPointer(3, 1, GL_DOUBLE, GL_FALSE, sizeof(struct g_arc), (void*)offsetof(struct g_arc,end_degree));
+    glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, sizeof(struct g_arc), (void*)offsetof(struct g_arc,color));
+    glVertexAttribIPointer(5, 1, GL_UNSIGNED_INT,   sizeof(struct g_arc), (void*)offsetof(struct g_arc,line_type));
+    glVertexAttribPointer(6, 1, GL_FLOAT, GL_FALSE, sizeof(struct g_arc), (void*)offsetof(struct g_arc,width));
+    glEnableVertexAttribArray(0);
+    glEnableVertexAttribArray(1);
+    glEnableVertexAttribArray(2);
+    glEnableVertexAttribArray(3);
+    glEnableVertexAttribArray(4);
+    glEnableVertexAttribArray(5);
+    glEnableVertexAttribArray(6);
+
+    cvector_push_back(man->arcs, newobj);
+    return cvector_back(man->arcs);
+}
+
+struct g_gpu_object* g_add_dot(struct g_manager* man, struct g_dot* dot){
+    struct g_gpu_object newobj;
+
+    g_gpu_object_make_VBAO(&newobj);
+
+    glBufferData(GL_ARRAY_BUFFER, sizeof(struct g_dot), dot, GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 2, GL_DOUBLE, GL_FALSE, sizeof(struct g_dot), (void*)0);
+    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(struct g_dot), (void*)offsetof(struct g_dot,color));
+    glVertexAttribIPointer(2, 1, GL_INT, sizeof(struct g_dot), (void*)(offsetof(struct g_dot,dot_type)));
+    glVertexAttribPointer(3, 1, GL_FLOAT, GL_FALSE, sizeof(struct g_dot), (void*)offsetof(struct g_dot,size));
+    glEnableVertexAttribArray(0);
+    glEnableVertexAttribArray(1);
+    glEnableVertexAttribArray(2);
+    glEnableVertexAttribArray(3);
+
+    cvector_push_back(man->dots, newobj);
+    return cvector_back(man->dots);
+}
+
 void g_draw(struct g_manager* man, struct g_camera* cam) {
     cvector_iterator(struct g_gpu_object) obj;
 
@@ -234,6 +289,22 @@ void g_draw(struct g_manager* man, struct g_camera* cam) {
     if ( cvector_size(man->lines) ) {
         g_use_shader(line_shader, cam);
         cvector_for_each_in(obj, man->lines){
+            glBindVertexArray(obj->vertex_array_object);
+            glDrawArrays(GL_POINTS, 0, 1);
+        }
+    }
+
+    if ( cvector_size(man->dots) ) {
+        g_use_shader(dot_shader, cam);
+        cvector_for_each_in(obj, man->dots){
+            glBindVertexArray(obj->vertex_array_object);
+            glDrawArrays(GL_POINTS, 0, 1);
+        }
+    }
+
+    if ( cvector_size(man->arcs) ) {
+        g_use_shader(arc_shader, cam);
+        cvector_for_each_in(obj, man->arcs){
             glBindVertexArray(obj->vertex_array_object);
             glDrawArrays(GL_POINTS, 0, 1);
         }

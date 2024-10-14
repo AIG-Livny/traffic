@@ -1,46 +1,61 @@
 #!/usr/bin/python3
-REQUIRED_VERSION = '0.4.2'
+
+def tool_config() -> "mapyr.ToolConfig":
+    tc = mapyr.ToolConfig()
+    tc.MINIMUM_REQUIRED_VERSION = '0.4.4'
+    tc.VERBOSITY = 'INFO'
+    return tc
 
 def config() -> list["mapyr.ProjectConfig"]:
 
     result = []
-    p = mapyr.ProjectConfig()
 
-    p.OUT_FILE  = "bin/traffic"
-    p.COMPILER  = "clang"
-    p.CFLAGS    = ["-g","-O0"]
+    # Debug
+    debug = mapyr.ProjectConfig()
+    debug.OUT_FILE  = "bin/traffic"
+    debug.COMPILER  = "clang"
+    #debug.CFLAGS    = ["-g","-O0"]
+    debug.CFLAGS    = ["-gdwarf-4","-O0"]
 
-    #p.CFLAGS    = ["-Ofast","-flto"]
-    #p.LINK_EXE_FLAGS = ["-flto"]
+    debug.INCLUDE_DIRS = ['include']
 
-    p.INCLUDE_DIRS = ['include']
-
-    p.SUBPROJECTS = [
+    debug.SUBPROJECTS = [
         'lib/shaderutils',
         'lib/mathc',
         'lib/geometry',
     ]
 
-    p.INCLUDE_DIRS = [
+    debug.INCLUDE_DIRS = [
         'lib/c-vector',
     ]
 
-    p.DEFINES = [
+    debug.DEFINES = [
         'CVECTOR_LOGARITHMIC_GROWTH',
     ]
 
-    p.PKG_SEARCH = [
+    debug.PKG_SEARCH = [
         'glfw3',
         'glew',
     ]
 
-    p.LIBS = [
+    debug.LIBS = [
         'm'
     ]
 
-    p.VSCODE_CPPTOOLS_CONFIG = True
+    debug.VSCODE_CPPTOOLS_CONFIG = True
+    debug.OVERRIDE_CFLAGS = True
+    debug.GROUPS = ['DEBUG']
 
-    result.append(p)
+    result.append(debug)
+
+    # Release
+    release = debug.copy()
+    release.GROUPS = ['RELEASE']
+    release.CFLAGS    = ["-Ofast","-flto"]
+    release.LINK_EXE_FLAGS = ["-flto"]
+
+    result.append(release)
+
     return result
 
 #-----------FOOTER-----------
@@ -54,4 +69,4 @@ if __name__ == "__main__":
         with open(f'{os.path.dirname(__file__)}/mapyr/__init__.py','+w') as f:
             f.write(requests.get('https://raw.githubusercontent.com/AIG-Livny/mapyr/master/__init__.py').text)
         import mapyr
-    mapyr.process(config(), REQUIRED_VERSION)
+    mapyr.process()

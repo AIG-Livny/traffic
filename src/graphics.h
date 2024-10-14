@@ -10,6 +10,30 @@ enum g_line_type {
     g_ltDOTDASH = 0xAFAF,
 };
 
+enum g_dot_type {
+    g_dtPLUS    = 0,
+    g_dtCIRCLE  = 1,
+    g_dtCROSS   = 2,
+    g_dtDOT     = 3,
+};
+
+struct g_dot {
+    union gm_dvec2 pos;
+    union gm_fvec4 color;
+    unsigned int dot_type;
+    float size;
+};
+
+struct g_arc {
+    union gm_dvec2 pos;
+    double radius;
+    double start_degree;
+    double end_degree;
+    union gm_fvec4 color;
+    unsigned int line_type;
+    float width;
+};
+
 struct g_segment {
     union gm_dvec2 p1;
     union gm_dvec2 p2;
@@ -45,6 +69,8 @@ void g_manager_free(struct g_manager* man);
 struct g_gpu_object* g_add_segment(struct g_manager* man, struct g_segment* segment);
 struct g_gpu_object* g_add_grid(struct g_manager* man, struct g_grid* grid);
 struct g_gpu_object* g_add_line(struct g_manager* man, struct g_line* line);
+struct g_gpu_object* g_add_arc(struct g_manager* man, struct g_arc* arc);
+struct g_gpu_object* g_add_dot(struct g_manager* man, struct g_dot* dot);
 
 void g_draw(struct g_manager* man, struct g_camera* cam);
 

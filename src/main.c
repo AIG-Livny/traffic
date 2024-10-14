@@ -98,6 +98,53 @@ int main( int argc, char **argv ) {
         .width = 2,
     });
 
+    g_add_arc(man,&(struct g_arc){
+        .pos    = {-100,-100},
+        .radius = 62,
+        .start_degree = M_PI_4,
+        .end_degree = (2*M_PI) - M_PI_4,
+        .color = {0,0,0.5,1},
+        .line_type = g_ltSOLID,
+        .width = 2,
+    });
+
+    g_add_arc(man,&(struct g_arc){
+        .pos    = {-100,-100},
+        .radius = 70,
+        .start_degree = -M_PI_4,
+        .end_degree = M_PI + M_PI_4,
+        .color = {0,0.3,0.5,1},
+        .line_type = g_ltDOTDASH,
+        .width = 3,
+    });
+
+    g_add_dot(man,&(struct g_dot){
+        .pos = {-100,100},
+        .color = {1,0,0,1},
+        .dot_type = g_dtPLUS,
+        .size = 4
+    });
+
+    g_add_dot(man,&(struct g_dot){
+        .pos = {-80,100},
+        .color = {1,0,0,1},
+        .dot_type = g_dtCIRCLE,
+        .size = 4
+    });
+
+    g_add_dot(man,&(struct g_dot){
+        .pos = {-100,80},
+        .color = {1,0,0,1},
+        .dot_type = g_dtCROSS,
+        .size = 4
+    });
+
+    g_add_dot(man,&(struct g_dot){
+        .pos = {-80,80},
+        .color = {1,0,0,1},
+        .dot_type = g_dtDOT,
+        .size = 4
+    });
     // END INIT
 
     while ( not glfwWindowShouldClose( window ) ) {

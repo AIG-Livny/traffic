@@ -40,8 +40,8 @@
             "type": "command",
             "command": "shellCommand.execute",
             "args": {
-              "command": "./build.py name",
-              "useFirstResult": true,
+                "command": "./build.py name",
+                "useFirstResult": true,
             }
         }
     ]

@@ -44,11 +44,10 @@ struct g_segment {
 };
 
 struct g_broken {
-    union gm_dvec2 pos;
-    union gm_dvec2 dir;
     unsigned int line_type;
     union gm_fvec4 color;
     float width;
+    union gm_fmat4 transform;
     cvector(union gm_dvec2) vertices;
 };
 

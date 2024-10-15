@@ -40,6 +40,8 @@
         "deque": "c",
         "hash_map": "c",
         "bitset": "c",
-        "initializer_list": "c"
+        "initializer_list": "c",
+        "cmath": "c",
+        "limits": "c"
     }
 }

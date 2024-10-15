@@ -153,9 +153,12 @@ int main( int argc, char **argv ) {
     cvector_push_back(vertices, ((union gm_dvec2){.x=0,.y=15}));
     cvector_push_back(vertices, ((union gm_dvec2){.x=10,.y=0}));
 
+    union gm_fmat4 tr = GM_MAT4_IDENTITY;
+    tr.m14 = 10;
+    tr.m24 = 10;
+
     g_add_broken(man,&(struct g_broken){
-        .pos = {0,0},
-        .dir = {0,1},
+        .transform = tr,
         .line_type = g_ltDOTDASH,
         .color = {1,0,0,1},
         .width = 4,

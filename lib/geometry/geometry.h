@@ -127,6 +127,20 @@ union gm_fmat4 {
     float data[16];
 };
 
+union gm_fmat3 {
+    struct {
+        float m11;
+        float m21;
+        float m31;
+        float m12;
+        float m22;
+        float m32;
+        float m13;
+        float m23;
+        float m33;
+    };
+    float data[9];
+};
 
 struct gm_irect3 {
     union gm_ivec3 min;
@@ -587,6 +601,19 @@ enum {
     result.data[13] = multiplied[13];                                                                                                               \
     result.data[14] = multiplied[14];                                                                                                               \
     result.data[15] = multiplied[15];                                                                                                               \
+}
+
+#define GM_MAT3_IDENTITY {  \
+    1.0f, 0.0f, 0.0f,       \
+    0.0f, 1.0f, 0.0f,       \
+    0.0f, 0.0f, 1.0f,       \
+}
+
+#define GM_MAT4_IDENTITY {  \
+    1.0f, 0.0f, 0.0f, 0.0f, \
+    0.0f, 1.0f, 0.0f, 0.0f, \
+    0.0f, 0.0f, 1.0f, 0.0f, \
+    0.0f, 0.0f, 0.0f, 1.0f, \
 }
 
 #define GM_TRIANGLE3_DIST(ret, tri, point){                        \

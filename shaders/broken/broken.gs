@@ -3,9 +3,6 @@
 layout (lines) in;
 layout (triangle_strip, max_vertices = 5) out;
 
-//in vec2 vert_pos[];
-//in vec2 pos[];
-//in vec2 dir[];
 in uint pattern[];
 in vec4 color[];
 in float width[];

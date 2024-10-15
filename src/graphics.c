@@ -293,11 +293,14 @@ struct g_gpu_object* g_add_broken(struct g_manager* man, struct g_broken* broken
     glVertexAttribPointer(0, 2, GL_DOUBLE, GL_FALSE, sizeof(union gm_dvec2), (void*)0 + broken_size);
 
     // Struct settings, these will be same for each vert
-    glVertexAttribPointer(1, 2, GL_DOUBLE, GL_FALSE, sizeof(union gm_dvec2), (void*)0);
-    glVertexAttribPointer(2, 2, GL_DOUBLE, GL_FALSE, sizeof(union gm_dvec2), (void*)offsetof(struct g_broken, dir));
-    glVertexAttribIPointer(3, 1, GL_UNSIGNED_INT,   sizeof(unsigned int), (void*)offsetof(struct g_broken,line_type));
-    glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, sizeof(union gm_fvec4), (void*)offsetof(struct g_broken,color));
-    glVertexAttribPointer(5, 1, GL_FLOAT, GL_FALSE, sizeof(float), (void*)offsetof(struct g_broken,width));
+    glVertexAttribIPointer(1, 1, GL_UNSIGNED_INT,   0, (void*)offsetof(struct g_broken,line_type));
+    glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, 0, (void*)offsetof(struct g_broken,color));
+    glVertexAttribPointer(3, 1, GL_FLOAT, GL_FALSE, 0, (void*)offsetof(struct g_broken,width));
+
+    glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, 0, (void*)offsetof(struct g_broken,transform));
+    glVertexAttribPointer(5, 4, GL_FLOAT, GL_FALSE, 0, (void*)offsetof(struct g_broken,transform)+16);
+    glVertexAttribPointer(6, 4, GL_FLOAT, GL_FALSE, 0, (void*)offsetof(struct g_broken,transform)+32);
+    glVertexAttribPointer(7, 4, GL_FLOAT, GL_FALSE, 0, (void*)offsetof(struct g_broken,transform)+48);
 
     // Update attrs only one time, they are same for each vert
     glVertexAttribDivisor(1,1);
@@ -305,6 +308,8 @@ struct g_gpu_object* g_add_broken(struct g_manager* man, struct g_broken* broken
     glVertexAttribDivisor(3,1);
     glVertexAttribDivisor(4,1);
     glVertexAttribDivisor(5,1);
+    glVertexAttribDivisor(6,1);
+    glVertexAttribDivisor(7,1);
 
     glEnableVertexAttribArray(0);
     glEnableVertexAttribArray(1);
@@ -312,6 +317,8 @@ struct g_gpu_object* g_add_broken(struct g_manager* man, struct g_broken* broken
     glEnableVertexAttribArray(3);
     glEnableVertexAttribArray(4);
     glEnableVertexAttribArray(5);
+    glEnableVertexAttribArray(6);
+    glEnableVertexAttribArray(7);
 
     newobj.vertices_count = cvector_size(broken->vertices);
     cvector_push_back(man->brokens, newobj);

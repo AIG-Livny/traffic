@@ -1,8 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "iso646.h"
+#include <iso646.h>
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
+#include <math.h>
 
 #include "geometry.h"
 #include "graphics.h"
@@ -145,6 +146,21 @@ int main( int argc, char **argv ) {
         .dot_type = g_dtDOT,
         .size = 4
     });
+
+    cvector(union gm_dvec2) vertices = NULL;
+    cvector_push_back(vertices, ((union gm_dvec2){.x=0,.y=0}));
+    cvector_push_back(vertices, ((union gm_dvec2){.x=-10,.y=10}));
+    cvector_push_back(vertices, ((union gm_dvec2){.x=0,.y=15}));
+    cvector_push_back(vertices, ((union gm_dvec2){.x=10,.y=0}));
+
+    g_add_broken(man,&(struct g_broken){
+        .pos = {0,0},
+        .dir = {0,1},
+        .line_type = g_ltDOTDASH,
+        .color = {1,0,0,1},
+        .width = 4,
+        .vertices = vertices
+    });
     // END INIT
 
     while ( not glfwWindowShouldClose( window ) ) {
@@ -155,7 +171,7 @@ int main( int argc, char **argv ) {
 
         g_draw(man, cam);
 
-        //g_camera_zoom(cam,0.1f);
+        g_camera_zoom(cam,-0.001f);
 
         glfwSwapBuffers( window );
     }

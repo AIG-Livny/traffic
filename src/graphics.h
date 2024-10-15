@@ -2,6 +2,7 @@
 #define GRAPHICS_H
 
 #include "geometry.h"
+#include "cvector.h"
 
 enum g_line_type {
     g_ltSOLID   = 0xFFFF,
@@ -42,6 +43,15 @@ struct g_segment {
     float width;
 };
 
+struct g_broken {
+    union gm_dvec2 pos;
+    union gm_dvec2 dir;
+    unsigned int line_type;
+    union gm_fvec4 color;
+    float width;
+    cvector(union gm_dvec2) vertices;
+};
+
 struct g_grid {
     union gm_fvec2 size;
     float step;
@@ -71,6 +81,7 @@ struct g_gpu_object* g_add_grid(struct g_manager* man, struct g_grid* grid);
 struct g_gpu_object* g_add_line(struct g_manager* man, struct g_line* line);
 struct g_gpu_object* g_add_arc(struct g_manager* man, struct g_arc* arc);
 struct g_gpu_object* g_add_dot(struct g_manager* man, struct g_dot* dot);
+struct g_gpu_object* g_add_broken(struct g_manager* man, struct g_broken* broken);
 
 void g_draw(struct g_manager* man, struct g_camera* cam);
 

@@ -11,6 +11,7 @@ GLuint grid_shader;
 GLuint line_shader;
 GLuint arc_shader;
 GLuint dot_shader;
+GLuint broken_shader;
 
 void g_init(){
     su_load_shader(&segment_shader, "shaders/segment");
@@ -18,6 +19,7 @@ void g_init(){
     su_load_shader(&line_shader, "shaders/line");
     su_load_shader(&arc_shader, "shaders/arc");
     su_load_shader(&dot_shader, "shaders/dot");
+    su_load_shader(&broken_shader, "shaders/broken");
 }
 
 // CAMERA
@@ -109,6 +111,7 @@ struct g_manager {
     cvector(struct g_gpu_object)    lines;
     cvector(struct g_gpu_object)     arcs;
     cvector(struct g_gpu_object)    grids;
+    cvector(struct g_gpu_object)  brokens;
 };
 
 struct g_manager* g_manager_create(){
@@ -127,6 +130,7 @@ void g_manager_free(struct g_manager* man){
     cvector_for_each_in(obj, man->arcs)     { g_gpu_object_free(obj);}
     cvector_for_each_in(obj, man->dots)     { g_gpu_object_free(obj);}
     cvector_for_each_in(obj, man->lines)    { g_gpu_object_free(obj);}
+    cvector_for_each_in(obj, man->brokens)  { g_gpu_object_free(obj);}
     free(man);
 }
 
@@ -182,16 +186,17 @@ struct g_gpu_object* g_add_grid(struct g_manager* man, struct g_grid* grid){
     glBufferData(GL_ARRAY_BUFFER, (sizeof(union gm_fvec2)* cvector_size(vertices)) + sizeof(data), &data, GL_STATIC_DRAW);
     glBufferSubData(GL_ARRAY_BUFFER, sizeof(data), (sizeof(union gm_fvec2)*cvector_size(vertices)), vertices);
 
-    glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(union gm_fvec2), (void*)(sizeof(union gm_fvec4) + sizeof(unsigned int)));
 
-    glEnableVertexAttribArray(1);
     glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(union gm_fvec4), (void*)0);
     glVertexAttribDivisor(1,1);
 
-    glEnableVertexAttribArray(2);
     glVertexAttribIPointer(2, 1, GL_UNSIGNED_INT,   sizeof(int), (void*)offsetof(struct Data,type));
     glVertexAttribDivisor(2,1);
+
+    glEnableVertexAttribArray(0);
+    glEnableVertexAttribArray(1);
+    glEnableVertexAttribArray(2);
 
     newobj.vertices_count = cvector_size(vertices);
 
@@ -267,6 +272,52 @@ struct g_gpu_object* g_add_dot(struct g_manager* man, struct g_dot* dot){
     return cvector_back(man->dots);
 }
 
+struct g_gpu_object* g_add_broken(struct g_manager* man, struct g_broken* broken){
+    struct g_gpu_object newobj;
+
+    g_gpu_object_make_VBAO(&newobj);
+
+    // Size of struct without vertices pointer
+    const unsigned int broken_size = sizeof(struct g_broken) - sizeof(union gm_dvec2*);
+    const unsigned int vertices_size = sizeof(union gm_dvec2) * cvector_size(broken->vertices);
+
+    // Load struct
+    glBufferData(GL_ARRAY_BUFFER, vertices_size + broken_size, broken, GL_STATIC_DRAW);
+
+    // Load vertices
+                    //destination   //offset     //size         //data pointer
+    glBufferSubData(GL_ARRAY_BUFFER, broken_size, vertices_size, broken->vertices);
+
+    // Vertices settings
+                          //id,count,type,normalized,stride                 //offset
+    glVertexAttribPointer(0, 2, GL_DOUBLE, GL_FALSE, sizeof(union gm_dvec2), (void*)0 + broken_size);
+
+    // Struct settings, these will be same for each vert
+    glVertexAttribPointer(1, 2, GL_DOUBLE, GL_FALSE, sizeof(union gm_dvec2), (void*)0);
+    glVertexAttribPointer(2, 2, GL_DOUBLE, GL_FALSE, sizeof(union gm_dvec2), (void*)offsetof(struct g_broken, dir));
+    glVertexAttribIPointer(3, 1, GL_UNSIGNED_INT,   sizeof(unsigned int), (void*)offsetof(struct g_broken,line_type));
+    glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, sizeof(union gm_fvec4), (void*)offsetof(struct g_broken,color));
+    glVertexAttribPointer(5, 1, GL_FLOAT, GL_FALSE, sizeof(float), (void*)offsetof(struct g_broken,width));
+
+    // Update attrs only one time, they are same for each vert
+    glVertexAttribDivisor(1,1);
+    glVertexAttribDivisor(2,1);
+    glVertexAttribDivisor(3,1);
+    glVertexAttribDivisor(4,1);
+    glVertexAttribDivisor(5,1);
+
+    glEnableVertexAttribArray(0);
+    glEnableVertexAttribArray(1);
+    glEnableVertexAttribArray(2);
+    glEnableVertexAttribArray(3);
+    glEnableVertexAttribArray(4);
+    glEnableVertexAttribArray(5);
+
+    newobj.vertices_count = cvector_size(broken->vertices);
+    cvector_push_back(man->brokens, newobj);
+    return cvector_back(man->brokens);
+}
+
 void g_draw(struct g_manager* man, struct g_camera* cam) {
     cvector_iterator(struct g_gpu_object) obj;
 
@@ -307,6 +358,14 @@ void g_draw(struct g_manager* man, struct g_camera* cam) {
         cvector_for_each_in(obj, man->arcs){
             glBindVertexArray(obj->vertex_array_object);
             glDrawArrays(GL_POINTS, 0, 1);
+        }
+    }
+
+    if ( cvector_size(man->brokens) ) {
+        g_use_shader(broken_shader, cam);
+        cvector_for_each_in(obj, man->brokens){
+            glBindVertexArray(obj->vertex_array_object);
+            glDrawArrays(GL_LINE_STRIP, 0, obj->vertices_count);
         }
     }
 }

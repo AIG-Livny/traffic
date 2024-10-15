@@ -157,7 +157,7 @@ int main( int argc, char **argv ) {
     tr.m14 = 10;
     tr.m24 = 10;
 
-    g_add_broken(man,&(struct g_broken){
+    g_add_line_array_segments(man,&(struct g_line_array){
         .transform = tr,
         .line_type = g_ltDOTDASH,
         .color = {1,0,0,1},

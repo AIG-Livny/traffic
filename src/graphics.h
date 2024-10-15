@@ -43,7 +43,7 @@ struct g_segment {
     float width;
 };
 
-struct g_broken {
+struct g_line_array {
     unsigned int line_type;
     union gm_fvec4 color;
     float width;
@@ -80,8 +80,8 @@ struct g_gpu_object* g_add_grid(struct g_manager* man, struct g_grid* grid);
 struct g_gpu_object* g_add_line(struct g_manager* man, struct g_line* line);
 struct g_gpu_object* g_add_arc(struct g_manager* man, struct g_arc* arc);
 struct g_gpu_object* g_add_dot(struct g_manager* man, struct g_dot* dot);
-struct g_gpu_object* g_add_broken(struct g_manager* man, struct g_broken* broken);
-
+struct g_gpu_object* g_add_line_array_strip(struct g_manager* man, struct g_line_array* line_array);
+struct g_gpu_object* g_add_line_array_segments(struct g_manager* man, struct g_line_array* line_array);
 void g_draw(struct g_manager* man, struct g_camera* cam);
 
 #endif

@@ -6,8 +6,52 @@
 
 #include "cvector_utils.h"
 
-static void gm_find_extremes(union gm_iextremes3* extremes, const cvector_vector_type(union gm_ivec3) points){
-    *extremes = (union gm_iextremes3){.data = {points,points,points,points,points,points}};
+double gm_triangle_dist( struct gm_triangle3i tri, struct vec3* point){
+    struct vec3 tmp_v;
+    vec3_subtract(&tmp_v, point, &tri.p[0]);
+    struct vec3 tmp_vf = {.x=tmp_v.x, .y=tmp_v.y, .z=tmp_v.z};
+    return vec3_dot(&tri.normal, &(struct vec3){.x=tmp_v.x, .y=tmp_v.y, .z=tmp_v.z});
+}
+
+
+#define GM_TRIANGLE3_CALC_NORM(tri){        \
+    typeof((tri).p[0]) tmp_v1 = (tri).p[0]; \
+    typeof((tri).p[0]) tmp_v2 = (tri).p[1]; \
+    GM_VEC3_SUBST(tmp_v1, (tri).p[1]);      \
+    GM_VEC3_SUBST(tmp_v2, (tri).p[2]);      \
+    GM_VEC3_CROSS(tmp_v1, tmp_v2);          \
+    (tri).normal = (struct vec3){           \
+        .x=tmp_v1.x,                        \
+        .y=tmp_v1.y,                        \
+        .z=tmp_v1.z,                        \
+    };                                      \
+    GM_VEC3_NORMALIZE((tri).normal);        \
+}
+
+#define GM_RECT_EXTEND(rect, value){                    \
+    typeof((rect).min) vct = {(value),(value),(value)}; \
+    GM_VEC3_SUBST((rect).min, vct);                     \
+    GM_VEC3_ADD((rect).max, vct);                       \
+}
+
+#define GM_VEC3_DISTANCE_TO_LINE(ret, err, point, line_point1, line_point2){ \
+    struct vec3i tmp_v3 = (line_point2);                                     \
+    GM_VEC3_SUBST(tmp_v3, (line_point1));                                    \
+    double v3_len = GM_VEC3_LENGTH(tmp_v3);                                  \
+    if (v3_len == 0){                                                        \
+        err = 1;                                                             \
+    } else {                                                                 \
+        struct vec3i tmp_v1 = (point);                                       \
+        struct vec3i tmp_v2 = (point);                                       \
+        GM_VEC3_SUBST(tmp_v1, (line_point1));                                \
+        GM_VEC3_SUBST(tmp_v2, (line_point2));                                \
+        GM_VEC3_CROSS(tmp_v1,tmp_v2);                                        \
+        ret = GM_VEC3_LENGTH(tmp_v1) / v3_len;                               \
+    }                                                                        \
+}
+
+static void gm_find_extremes(struct gm_extremes3i* extremes, const cvector_vector_type(struct vec3i) points){
+    *extremes = (struct gm_extremes3i){.data = {points,points,points,points,points,points}};
 
     #define SET_MAX(axis)                           \
         if (it->axis > extremes->max_##axis->axis){ \
@@ -18,8 +62,8 @@ static void gm_find_extremes(union gm_iextremes3* extremes, const cvector_vector
             extremes->min_##axis=it;                \
         }
 
-    union gm_ivec3* it;
-    cvector_for_each_in(it, (cvector_vector_type(union gm_ivec3))points){
+    struct vec3i* it;
+    cvector_for_each_in(it, (cvector_vector_type(struct vec3i))points){
         SET_MIN(x);SET_MAX(x);
         SET_MIN(y);SET_MAX(y);
         SET_MIN(z);SET_MAX(z);
@@ -27,8 +71,8 @@ static void gm_find_extremes(union gm_iextremes3* extremes, const cvector_vector
 }
 
 struct convex_plane {
-    struct gm_itriangle3 triangle;
-    cvector_vector_type(union gm_ivec3) outside_points;
+    struct gm_triangle3i triangle;
+    cvector_vector_type(struct vec3i) outside_points;
 };
 
 // Calculating the horizon for an eye to make new faces
@@ -36,23 +80,21 @@ bool calc_horizon(
     cvector_vector_type(int) all_planes,
     cvector_vector_type(int) visited_planes,
     int current_plane,
-    union gm_ivec3* eye_point,
-    cvector_vector_type(struct gm_isegment3) segments,
+    struct vec3i* eye_point,
+    cvector_vector_type(struct gm_segment3i) segments,
     cvector_vector_type(struct convex_plane) plane_storage
     )
 {
     cvector_iterator(int) plane;
-    double dist;
-    //double dist = GM_TRIANGLE3_DISTi(&plane_storage[current_plane].triangle,eye_point);
-    GM_TRIANGLE3_DIST(dist, plane_storage[current_plane].triangle, *eye_point);
+    double dist = gm_triangle_dist( plane_storage[current_plane].triangle, eye_point);
 
     if( dist > 0){
         cvector_push_back(visited_planes, current_plane);
         for(int i = 0; i < 3; i++){
 
             // Edge
-            union gm_ivec3* e1 = &plane_storage[current_plane].triangle.p[i];
-            union gm_ivec3* e2;
+            struct vec3i* e1 = &plane_storage[current_plane].triangle.p[i];
+            struct vec3i* e2;
             if (i < 2){e2 = &plane_storage[current_plane].triangle.p[i+1];}else{e2 = &plane_storage[current_plane].triangle.p[0];}
 
             // Finding adjacent planes to an edge
@@ -66,12 +108,12 @@ bool calc_horizon(
                 bool e2_found = false;
                 for(int i = 0; i < 3; i++){
                     if(not e1_found)
-                    if(memcmp(e1,&plane_storage[*plane].triangle.p[i],sizeof(union gm_ivec3)) == 0){
+                    if(memcmp(e1,&plane_storage[*plane].triangle.p[i],sizeof(struct vec3i)) == 0){
                         e1_found = true;
 
                     }
                     if(not e2_found)
-                    if(memcmp(e2,&plane_storage[*plane].triangle.p[i],sizeof(union gm_ivec3)) == 0){
+                    if(memcmp(e2,&plane_storage[*plane].triangle.p[i],sizeof(struct vec3i)) == 0){
                         e2_found = true;
                     }
                 }
@@ -96,7 +138,7 @@ bool calc_horizon(
             if(it_vp == cvector_end(visited_planes)){
                 bool result = calc_horizon(all_planes, visited_planes, adjacent, eye_point, segments, plane_storage);
                 if (result){
-                    cvector_push_back(segments, ((struct gm_isegment3){.start=*e1, .end=*e2}) );
+                    cvector_push_back(segments, ((struct gm_segment3i){.start=*e1, .end=*e2}) );
                 }
             }
         }
@@ -107,14 +149,14 @@ bool calc_horizon(
 }
 
 // Quickhull for 3d integer space
-static void gm_update_iconvex_hull30(struct gm_iconvex_hull3* ch, const cvector_vector_type(union gm_ivec3) points, const union gm_iextremes3* extremes){
+static void gm_update_iconvex_hull30(struct gm_convex_hull3i* ch, const cvector_vector_type(struct vec3i) points, const struct gm_extremes3i* extremes){
     // Delete old data
     cvector_free(ch->tris);
     ch->tris = NULL;
 
     // If no extremes then find them
-    union gm_iextremes3 tmp_extremes;
-    union gm_iextremes3* pextremes = (union gm_iextremes3*)extremes;
+    struct gm_extremes3i tmp_extremes;
+    struct gm_extremes3i* pextremes = (struct gm_extremes3i*)extremes;
 
     if ( not extremes ) {
         pextremes = &tmp_extremes;
@@ -128,7 +170,7 @@ static void gm_update_iconvex_hull30(struct gm_iconvex_hull3* ch, const cvector_
 
     // From the extreme points calculate the 2 most distant points
     double max_dist = 0;
-    const union gm_ivec3* start_points[4];
+    const struct vec3i* start_points[4];
     for(int i = 0; i < 3*2; i++){
         for(int j = i+1; j < 3*2; j++){
             double dist = GM_VEC3_DISTANCE_SQUARED(*pextremes->data[i],*pextremes->data[j]);
@@ -148,8 +190,8 @@ static void gm_update_iconvex_hull30(struct gm_iconvex_hull3* ch, const cvector_
     // Let's find third point
     // Most distant from line
     max_dist = 0;
-    cvector_iterator(union gm_ivec3) point;
-    cvector_for_each_in(point, (cvector_vector_type(union gm_ivec3))points){
+    cvector_iterator(struct vec3i) point;
+    cvector_for_each_in(point, (cvector_vector_type(struct vec3i))points){
         if( (start_points[0] == point) or (start_points[1] == point) ){
             continue;
         }
@@ -170,7 +212,7 @@ static void gm_update_iconvex_hull30(struct gm_iconvex_hull3* ch, const cvector_
 
     cvector_push_back(plane_storage,
         ((struct convex_plane){
-            .triangle=(struct gm_itriangle3){.p={*start_points[0],*start_points[1],*start_points[2]}},
+            .triangle=(struct gm_triangle3i){.p={*start_points[0],*start_points[1],*start_points[2]}},
             .outside_points = NULL,
         }));
     cvector_init(cvector_back(plane_storage)->outside_points, 20, NULL);
@@ -179,9 +221,9 @@ static void gm_update_iconvex_hull30(struct gm_iconvex_hull3* ch, const cvector_
 
     // Fourth point
     max_dist = 0;
-    cvector_for_each_in(point, (cvector_vector_type(union gm_ivec3))points){
+    cvector_for_each_in(point, (cvector_vector_type(struct vec3i))points){
         double dist;
-        union gm_dvec3 pnt = {point->x,point->y,point->z};
+        struct vec3 pnt = {point->x,point->y,point->z};
         GM_TRIANGLE3_DIST(dist, cp->triangle, pnt);
         if ( fabs(dist) > max_dist ){
             max_dist = dist;
@@ -192,7 +234,7 @@ static void gm_update_iconvex_hull30(struct gm_iconvex_hull3* ch, const cvector_
     // Other 3 planes
     cvector_push_back(plane_storage,
         ((struct convex_plane){
-            .triangle=(struct gm_itriangle3){.p={*start_points[0],*start_points[1],*start_points[3]}},
+            .triangle=(struct gm_triangle3i){.p={*start_points[0],*start_points[1],*start_points[3]}},
             .outside_points = NULL,
         }));
     cvector_init(cvector_back(plane_storage)->outside_points, 20, NULL);
@@ -200,7 +242,7 @@ static void gm_update_iconvex_hull30(struct gm_iconvex_hull3* ch, const cvector_
 
     cvector_push_back(plane_storage,
         ((struct convex_plane){
-            .triangle=(struct gm_itriangle3){.p={*start_points[0],*start_points[3],*start_points[2]}},
+            .triangle=(struct gm_triangle3i){.p={*start_points[0],*start_points[3],*start_points[2]}},
             .outside_points = NULL,
         }));
     cvector_init(cvector_back(plane_storage)->outside_points, 20, NULL);
@@ -208,7 +250,7 @@ static void gm_update_iconvex_hull30(struct gm_iconvex_hull3* ch, const cvector_
 
     cvector_push_back(plane_storage,
         ((struct convex_plane){
-            .triangle=(struct gm_itriangle3){.p={*start_points[1],*start_points[2],*start_points[3]}},
+            .triangle=(struct gm_triangle3i){.p={*start_points[1],*start_points[2],*start_points[3]}},
             .outside_points = NULL,
         }));
     cvector_init(cvector_back(plane_storage)->outside_points, 20, NULL);
@@ -219,9 +261,9 @@ static void gm_update_iconvex_hull30(struct gm_iconvex_hull3* ch, const cvector_
     cvector_for_each_in(stored_plane, plane_storage){
         // Correct normals
         for (int pi = 0; pi < 4; pi++){
-            union gm_ivec3 tmp_v = *start_points[pi];
+            struct vec3i tmp_v = *start_points[pi];
             GM_VEC3_SUBST(tmp_v, stored_plane->triangle.p[0]);
-            union gm_dvec3 tmp_vf = {.x=tmp_v.x, .y=tmp_v.y, .z=tmp_v.z};
+            struct vec3 tmp_vf = {.x=tmp_v.x, .y=tmp_v.y, .z=tmp_v.z};
             double dist = GM_VEC3_DOT( stored_plane->triangle.normal, tmp_vf);
             if(dist > 0){
                 GM_VEC3_MULT(stored_plane->triangle.normal, -1);
@@ -229,7 +271,7 @@ static void gm_update_iconvex_hull30(struct gm_iconvex_hull3* ch, const cvector_
         }
 
         // Find all outside points
-        cvector_for_each_in(point, (cvector_vector_type(union gm_ivec3))points){
+        cvector_for_each_in(point, (cvector_vector_type(struct vec3i))points){
             double dist;
             GM_TRIANGLE3_DIST(dist, stored_plane->triangle, *point);
             if (dist > 0){
@@ -240,13 +282,13 @@ static void gm_update_iconvex_hull30(struct gm_iconvex_hull3* ch, const cvector_
 
     cvector_vector_type(int) visited_planes             = NULL;
     cvector_vector_type(int) planes                     = NULL;
-    cvector_vector_type(struct gm_isegment3) segments    = NULL;
+    cvector_vector_type(struct gm_segment3i) segments    = NULL;
 
     cvector_reserve(visited_planes, 40);
     cvector_reserve(planes, 40);
     cvector_reserve(segments, 40);
 
-    cvector_iterator(struct gm_isegment3) segment;
+    cvector_iterator(struct gm_segment3i) segment;
     cvector_iterator(int) visited_plane;
     cvector_iterator(int) plane;
     cvector_iterator(int) plane2;
@@ -264,7 +306,7 @@ static void gm_update_iconvex_hull30(struct gm_iconvex_hull3* ch, const cvector_
                 any_left = true;
 
                 // Calculate the eye point of the face
-                union gm_ivec3 eye_point;
+                struct vec3i eye_point;
                 max_dist = 0;
                 cvector_for_each_in(point, plane_storage[*plane].outside_points){
                     double dist;
@@ -306,9 +348,9 @@ static void gm_update_iconvex_hull30(struct gm_iconvex_hull3* ch, const cvector_
 
                     // Correct normal new plane
                     for (int pi = 0; pi < 4; pi++){
-                        union gm_ivec3 tmp_v = *start_points[pi];
+                        struct vec3i tmp_v = *start_points[pi];
                         GM_VEC3_SUBST(tmp_v, new_plane->triangle.p[0]);
-                        union gm_dvec3 tmp_vf = {.x=tmp_v.x, .y=tmp_v.y, .z=tmp_v.z};
+                        struct vec3 tmp_vf = {.x=tmp_v.x, .y=tmp_v.y, .z=tmp_v.z};
                         double dist = GM_VEC3_DOT( new_plane->triangle.normal, tmp_vf);
                         if(dist > 0){
                             GM_VEC3_MULT(new_plane->triangle.normal, -1);
@@ -334,7 +376,7 @@ static void gm_update_iconvex_hull30(struct gm_iconvex_hull3* ch, const cvector_
     }
 
     // Copy planes to convex hull
-    cvector_iterator(struct gm_itriangle3) tris;
+    cvector_iterator(struct gm_triangle3i) tris;
     cvector_init(ch->tris, cvector_size(planes), NULL);
     cvector_for_each_in(plane, planes){
         cvector_push_back(ch->tris, plane_storage[*plane].triangle);
@@ -350,15 +392,15 @@ static void gm_update_iconvex_hull30(struct gm_iconvex_hull3* ch, const cvector_
     cvector_free(plane_storage);
 }
 
-void gm_update_iconvex_hull3(struct gm_iconvex_hull3* ch, const cvector_vector_type(union gm_ivec3) points, const union gm_iextremes3* extremes){
+void gm_update_iconvex_hull3(struct gm_convex_hull3i* ch, const cvector_vector_type(struct vec3i) points, const struct gm_extremes3i* extremes){
     gm_update_iconvex_hull30(ch,points,extremes);
 }
 
-bool gm_is_ivec3_inside_convex_hull(const struct gm_iconvex_hull3* ch, const union gm_ivec3* point){
-    cvector_iterator(struct gm_itriangle3) it;
+bool gm_is_ivec3_inside_convex_hull(const struct gm_convex_hull3i* ch, const struct vec3i* point){
+    cvector_iterator(struct gm_triangle3i) it;
     cvector_for_each_in(it, ch->tris){
         double dist;
-        GM_TRIANGLE3_DIST(dist, *it, *(union gm_ivec3*)point);
+        GM_TRIANGLE3_DIST(dist, *it, *(struct vec3i*)point);
         if(dist > 0){
             return false;
         }

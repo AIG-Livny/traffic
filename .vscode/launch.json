@@ -31,7 +31,8 @@
             "type": "debugpy",
             "request": "launch",
             "program": "build.py",
-            "console": "integratedTerminal"
+            "console": "integratedTerminal",
+            "args": ["RELEASE"]
         }
     ],
     "inputs": [

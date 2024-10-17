@@ -1,55 +1,67 @@
 #!/usr/bin/python3
 
+import copy
+
 def tool_config() -> "mapyr.ToolConfig":
     tc = mapyr.ToolConfig()
-    tc.MINIMUM_REQUIRED_VERSION = '0.4.4'
-    tc.VERBOSITY = 'INFO'
+    tc.MINIMUM_REQUIRED_VERSION = '0.4.5'
+    tc.PRINT_SIZE = True
     return tc
 
 def config() -> list["mapyr.ProjectConfig"]:
 
     result = []
 
-    # Debug
-    debug = mapyr.ProjectConfig()
-    debug.OUT_FILE  = "bin/traffic"
-    debug.COMPILER  = "clang"
-    #debug.CFLAGS    = ["-g","-O0"]
-    debug.CFLAGS    = ["-gdwarf-4","-O0"]
+    default = mapyr.ProjectConfig()
+    default.OUT_FILE  = "bin/traffic"
+    default.COMPILER  = "clang"
+    default.INCLUDE_DIRS = ['include']
 
-    debug.INCLUDE_DIRS = ['include']
-
-    debug.SUBPROJECTS = [
+    default.SUBPROJECTS = [
         'lib/shaderutils',
         'lib/mathc',
         'lib/geometry',
     ]
 
-    debug.INCLUDE_DIRS = [
+    default.INCLUDE_DIRS = [
         'lib/c-vector',
     ]
 
-    debug.DEFINES = [
+    default.DEFINES = [
         'CVECTOR_LOGARITHMIC_GROWTH',
+        'MATHC_USE_DOUBLE_FLOATING_POINT',
     ]
 
-    debug.PKG_SEARCH = [
+    default.PKG_SEARCH = [
         'glfw3',
         'glew',
     ]
 
-    debug.LIBS = [
+    default.LIBS = [
         'm'
     ]
 
-    debug.VSCODE_CPPTOOLS_CONFIG = True
-    debug.OVERRIDE_CFLAGS = True
+    default.VSCODE_CPPTOOLS_CONFIG = True
+    default.OVERRIDE_CFLAGS = True
+
+    # Debug
+    debug = copy.deepcopy(default)
+    debug.CFLAGS    = ["-Ofast","-flto"]
+    debug.LINK_EXE_FLAGS = ["-flto"]
     debug.GROUPS = ['DEBUG']
+    debug.DEFINES += ['DEBUG']
 
     result.append(debug)
 
+    # Profiler
+    #profiler = copy.deepcopy(default)
+    #profiler.CFLAGS    = ["-gdwarf-4","-O0"]
+    #profiler.GROUPS = ['PROFILER']
+    #profiler.DEFINES += ['DEBUG']
+    #result.append(profiler)
+
     # Release
-    release = debug.copy()
+    release = copy.deepcopy(default)
     release.GROUPS = ['RELEASE']
     release.CFLAGS    = ["-Ofast","-flto"]
     release.LINK_EXE_FLAGS = ["-flto"]
@@ -60,13 +72,14 @@ def config() -> list["mapyr.ProjectConfig"]:
 
 #-----------FOOTER-----------
 # https://github.com/AIG-Livny/mapyr.git
+try:
+    import mapyr
+except:
+    import requests, os
+    os.makedirs(f'{os.path.dirname(__file__)}/mapyr',exist_ok=True)
+    with open(f'{os.path.dirname(__file__)}/mapyr/__init__.py','+w') as f:
+        f.write(requests.get('https://raw.githubusercontent.com/AIG-Livny/mapyr/master/__init__.py').text)
+    import mapyr
+
 if __name__ == "__main__":
-    try:
-        import mapyr
-    except:
-        import requests, os
-        os.makedirs(f'{os.path.dirname(__file__)}/mapyr',exist_ok=True)
-        with open(f'{os.path.dirname(__file__)}/mapyr/__init__.py','+w') as f:
-            f.write(requests.get('https://raw.githubusercontent.com/AIG-Livny/mapyr/master/__init__.py').text)
-        import mapyr
-    mapyr.process()
+    mapyr.process(config, tool_config)

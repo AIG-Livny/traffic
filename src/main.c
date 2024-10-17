@@ -8,6 +8,8 @@
 #include "geometry.h"
 #include "graphics.h"
 
+#include "debug.h"
+
 void keyboard( GLFWwindow* window, int key, int scancode, int action, int mods ) {
     if ( key == GLFW_KEY_ESCAPE && action == GLFW_PRESS ) {
         glfwSetWindowShouldClose( window, GL_TRUE );
@@ -18,8 +20,8 @@ void error_callback( int error, const char* description ) {
     fputs( description, stderr );
 }
 
-
 int main( int argc, char **argv ) {
+    DEBUG_TIMEBLOCK_START(startup);
     glfwSetErrorCallback( error_callback );
 
     if ( not glfwInit() ) {
@@ -29,7 +31,7 @@ int main( int argc, char **argv ) {
     glfwWindowHint( GLFW_VISIBLE, GL_FALSE );
     glfwWindowHint( GLFW_RESIZABLE, GL_FALSE );
 
-    union gm_ivec2 window_size = {800, 600};
+    struct vec2i window_size = {800, 600};
 
     GLFWwindow* window = glfwCreateWindow( window_size.x, window_size.y, argv[0], NULL, NULL );
     if ( not window ) {
@@ -70,14 +72,14 @@ int main( int argc, char **argv ) {
     });
 
     g_add_grid(man,&(struct g_grid){
-        .size   = GM_FVEC2_FROM_VEC2(window_size),
+        .size   = {window_size.x, window_size.y},
         .step   = 10,
         .color  = {0.1,0.1,0.1,0.05},
         .line_type = g_ltSOLID
     });
 
     g_add_grid(man,&(struct g_grid){
-        .size   = GM_FVEC2_FROM_VEC2(window_size),
+        .size   = {window_size.x, window_size.y},
         .step   = 100,
         .color  = {0.1,0.1,0.1,0.1},
         .line_type = g_ltSOLID,
@@ -147,17 +149,18 @@ int main( int argc, char **argv ) {
         .size = 4
     });
 
-    cvector(union gm_dvec2) vertices = NULL;
-    cvector_push_back(vertices, ((union gm_dvec2){.x=0,.y=0}));
-    cvector_push_back(vertices, ((union gm_dvec2){.x=-10,.y=10}));
-    cvector_push_back(vertices, ((union gm_dvec2){.x=0,.y=15}));
-    cvector_push_back(vertices, ((union gm_dvec2){.x=10,.y=0}));
+    cvector(struct vec2) vertices = NULL;
+    cvector_push_back(vertices, ((struct vec2){.x=0,.y=0}));
+    cvector_push_back(vertices, ((struct vec2){.x=-10,.y=10}));
+    cvector_push_back(vertices, ((struct vec2){.x=0,.y=15}));
+    cvector_push_back(vertices, ((struct vec2){.x=10,.y=0}));
 
-    union gm_fmat4 tr = GM_MAT4_IDENTITY;
+    struct mat4 tr;
+    psmat4_identity(&tr);
     tr.m14 = 10;
     tr.m24 = 10;
 
-    g_add_line_array_segments(man,&(struct g_line_array){
+    g_add_line_array_strip(man,&(struct g_line_array){
         .transform = tr,
         .line_type = g_ltDOTDASH,
         .color = {1,0,0,1},
@@ -165,6 +168,7 @@ int main( int argc, char **argv ) {
         .vertices = vertices
     });
     // END INIT
+    DEBUG_TIMEBLOCK_STOP(startup);
 
     while ( not glfwWindowShouldClose( window ) ) {
         glfwWaitEvents();

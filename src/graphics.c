@@ -5,6 +5,7 @@
 #include "cvector.h"
 #include "cvector_utils.h"
 #include "shaderutils.h"
+#include "mathc.h"
 
 GLuint segment_shader;
 GLuint grid_shader;
@@ -25,16 +26,31 @@ void g_init(){
 // CAMERA
 
 struct g_camera {
-    union gm_dvec2 position;
+    struct vec2 position;
     float rotation;
     double zoom;
-    union gm_ivec2 viewport_size;
-    union gm_fmat4 projection;
-    union gm_fmat4 view;
-    union gm_fmat4 unproject;
+    struct vec2i viewport_size;
+    struct mat4f projection;
+    struct mat4f view;
+    struct mat4f unproject;
 };
 
-void g_camera_update_matrices(struct g_camera* cam) {
+static inline void g_camera_update_matrices(struct g_camera* cam) {
+    struct vec2 tmp = {cam->viewport_size.x, cam->viewport_size.y};
+    psvec2_divide_f(&tmp, &tmp, 2);
+    psvec2_multiply_f(&tmp, &tmp, cam->zoom);
+    psmat4_ortho((struct mat4*)&cam->projection, -tmp.x, tmp.x, -tmp.y, tmp.y, 0.0f, 1000.0f);
+    struct vec3f position =  {cam->position.x, cam->position.y, 1};
+    struct vec3f target   =  {cam->position.x, cam->position.y, 0};
+    struct vec3f up       =  {0,1,0};
+
+    psmat4_look_at(&cam->view, &position, &target, &up);
+    psmat4_multiply(&cam->unproject, &cam->projection, &cam->view);
+    psmat4_inverse(&cam->unproject, &cam->unproject);
+}
+
+/*
+void g_camera_update_matrices_(struct g_camera* cam) {
     union gm_dvec2 tmp = GM_DVEC2_FROM_VEC2(cam->viewport_size);
     GM_VEC2_DIV(tmp,2);
     GM_VEC2_MULT(tmp,cam->zoom);
@@ -46,9 +62,10 @@ void g_camera_update_matrices(struct g_camera* cam) {
     cam->unproject = cam->projection;
     GM_MAT4_MULT(cam->projection, cam->view);
     GM_MAT4_INVERSE(cam->unproject);
-}
+*/
 
-struct g_camera* g_camera_create(union gm_ivec2* viewport_size) {
+
+struct g_camera* g_camera_create(struct vec2i* viewport_size) {
     struct g_camera* newcam = malloc(sizeof(struct g_camera));
     if ( not newcam ) {
         // ERROR
@@ -64,8 +81,8 @@ void g_camera_free(struct g_camera* cam){
     free(cam);
 }
 
-void g_camera_move(struct g_camera* cam, union gm_dvec2* delta){
-    GM_VEC2_ADD(cam->position, *delta);
+void g_camera_move(struct g_camera* cam, struct vec2* delta){
+    psvec2_add(&cam->position,&cam->position, delta);
     g_camera_update_matrices(cam);
 }
 
@@ -85,9 +102,9 @@ struct g_gpu_object {
 
 void g_use_shader(GLuint handler, const struct g_camera* cam){
     glUseProgram(handler);
-    glUniformMatrix4fv(glGetUniformLocation(handler, "VIEW"), 1, GL_FALSE, &cam->view.data[0]);
-    glUniformMatrix4fv(glGetUniformLocation(handler, "PROJECTION"), 1, GL_FALSE, &cam->projection.data[0]);
-    glUniform1f(glGetUniformLocation(handler, "ZOOM"), cam->zoom);
+    glUniformMatrix4dv(glGetUniformLocation(handler, "VIEW"), 1, GL_FALSE, &cam->view.v[0]);
+    glUniformMatrix4dv(glGetUniformLocation(handler, "PROJECTION"), 1, GL_FALSE, &cam->projection.v[0]);
+    glUniform1d(glGetUniformLocation(handler, "ZOOM"), cam->zoom);
 }
 
 void g_gpu_object_free(struct g_gpu_object* obj){
@@ -146,7 +163,7 @@ struct g_gpu_object* g_add_segment(struct g_manager* man, struct g_segment* segm
     glVertexAttribPointer(0, 2, GL_DOUBLE, GL_FALSE, sizeof(struct g_segment), (void*)0);
     glVertexAttribPointer(1, 2, GL_DOUBLE, GL_FALSE, sizeof(struct g_segment), (void*)offsetof(struct g_segment,p2));
     glVertexAttribIPointer(2, 1, GL_UNSIGNED_INT,   sizeof(struct g_segment), (void*)offsetof(struct g_segment,line_type));
-    glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, sizeof(struct g_segment), (void*)offsetof(struct g_segment,color));
+    glVertexAttribPointer(3, 4, GL_DOUBLE, GL_FALSE, sizeof(struct g_segment), (void*)offsetof(struct g_segment,color));
     glVertexAttribPointer(4, 1, GL_FLOAT, GL_FALSE, sizeof(struct g_segment), (void*)offsetof(struct g_segment,width));
     glEnableVertexAttribArray(0);
     glEnableVertexAttribArray(1);
@@ -159,38 +176,38 @@ struct g_gpu_object* g_add_segment(struct g_manager* man, struct g_segment* segm
 }
 
 struct g_gpu_object* g_add_grid(struct g_manager* man, struct g_grid* grid){
-    float half_width = grid->size.x/2;
-    float half_height = grid->size.y/2;
+    double half_width = grid->size.x/2;
+    double half_height = grid->size.y/2;
 
-    cvector(union gm_fvec2) vertices = NULL;
+    cvector(struct vec2) vertices = NULL;
 
-    for(float i=-half_width; i<half_width; i+=grid->step){
-        cvector_push_back(vertices,((union gm_fvec2){i,-half_height}));
-        cvector_push_back(vertices,((union gm_fvec2){i,half_height}));
+    for(double i=-half_width; i<half_width; i+=grid->step){
+        cvector_push_back(vertices,((struct vec2){i,-half_height}));
+        cvector_push_back(vertices,((struct vec2){i,half_height}));
     }
 
-    for(float i=-half_height; i<half_height; i+=grid->step){
-        cvector_push_back(vertices,((union gm_fvec2){-half_width,i}));
-        cvector_push_back(vertices,((union gm_fvec2){half_width,i}));
+    for(double i=-half_height; i<half_height; i+=grid->step){
+        cvector_push_back(vertices,((struct vec2){-half_width,i}));
+        cvector_push_back(vertices,((struct vec2){half_width,i}));
     }
 
     struct g_gpu_object newobj;
     g_gpu_object_make_VBAO(&newobj);
 
     struct Data {
-        union gm_fvec4 color;
+        struct vec4 color;
         unsigned int type;
     } data = {
         .color = grid->color,
         .type  = grid->line_type
     };
 
-    glBufferData(GL_ARRAY_BUFFER, (sizeof(union gm_fvec2)* cvector_size(vertices)) + sizeof(data), &data, GL_STATIC_DRAW);
-    glBufferSubData(GL_ARRAY_BUFFER, sizeof(data), (sizeof(union gm_fvec2)*cvector_size(vertices)), vertices);
+    glBufferData(GL_ARRAY_BUFFER, (sizeof(struct vec2) * cvector_size(vertices)) + sizeof(data), &data, GL_STATIC_DRAW);
+    glBufferSubData(GL_ARRAY_BUFFER, sizeof(data), (sizeof(struct vec2)*cvector_size(vertices)), vertices);
 
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(union gm_fvec2), (void*)(sizeof(union gm_fvec4) + sizeof(unsigned int)));
+    glVertexAttribPointer(0, 2, GL_DOUBLE, GL_FALSE, sizeof(struct vec2), (void*)(sizeof(data) ));
 
-    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(union gm_fvec4), (void*)0);
+    glVertexAttribPointer(1, 4, GL_DOUBLE, GL_FALSE, sizeof(struct vec4), (void*)0);
     glVertexAttribDivisor(1,1);
 
     glVertexAttribIPointer(2, 1, GL_UNSIGNED_INT,   sizeof(int), (void*)offsetof(struct Data,type));
@@ -217,7 +234,7 @@ struct g_gpu_object* g_add_line(struct g_manager* man, struct g_line* line){
     glVertexAttribPointer(0, 2, GL_DOUBLE, GL_FALSE, sizeof(struct g_line), (void*)0);
     glVertexAttribPointer(1, 2, GL_DOUBLE, GL_FALSE, sizeof(struct g_line), (void*)offsetof(struct g_line,dir));
     glVertexAttribIPointer(2, 1, GL_UNSIGNED_INT,   sizeof(struct g_line), (void*)offsetof(struct g_line,line_type));
-    glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, sizeof(struct g_line), (void*)offsetof(struct g_line,color));
+    glVertexAttribPointer(3, 4, GL_DOUBLE, GL_FALSE, sizeof(struct g_line), (void*)offsetof(struct g_line,color));
     glVertexAttribPointer(4, 1, GL_FLOAT, GL_FALSE, sizeof(struct g_line), (void*)offsetof(struct g_line,width));
     glEnableVertexAttribArray(0);
     glEnableVertexAttribArray(1);
@@ -239,7 +256,7 @@ struct g_gpu_object* g_add_arc(struct g_manager* man, struct g_arc* arc){
     glVertexAttribPointer(1, 1, GL_DOUBLE, GL_FALSE, sizeof(struct g_arc), (void*)offsetof(struct g_arc,radius));
     glVertexAttribPointer(2, 1, GL_DOUBLE, GL_FALSE, sizeof(struct g_arc), (void*)offsetof(struct g_arc,start_degree));
     glVertexAttribPointer(3, 1, GL_DOUBLE, GL_FALSE, sizeof(struct g_arc), (void*)offsetof(struct g_arc,end_degree));
-    glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, sizeof(struct g_arc), (void*)offsetof(struct g_arc,color));
+    glVertexAttribPointer(4, 4, GL_DOUBLE, GL_FALSE, sizeof(struct g_arc), (void*)offsetof(struct g_arc,color));
     glVertexAttribIPointer(5, 1, GL_UNSIGNED_INT,   sizeof(struct g_arc), (void*)offsetof(struct g_arc,line_type));
     glVertexAttribPointer(6, 1, GL_FLOAT, GL_FALSE, sizeof(struct g_arc), (void*)offsetof(struct g_arc,width));
     glEnableVertexAttribArray(0);
@@ -262,7 +279,7 @@ struct g_gpu_object* g_add_dot(struct g_manager* man, struct g_dot* dot){
     glBufferData(GL_ARRAY_BUFFER, sizeof(struct g_dot), dot, GL_STATIC_DRAW);
 
     glVertexAttribPointer(0, 2, GL_DOUBLE, GL_FALSE, sizeof(struct g_dot), (void*)0);
-    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(struct g_dot), (void*)offsetof(struct g_dot,color));
+    glVertexAttribPointer(1, 4, GL_DOUBLE, GL_FALSE, sizeof(struct g_dot), (void*)offsetof(struct g_dot,color));
     glVertexAttribIPointer(2, 1, GL_INT, sizeof(struct g_dot), (void*)(offsetof(struct g_dot,dot_type)));
     glVertexAttribPointer(3, 1, GL_FLOAT, GL_FALSE, sizeof(struct g_dot), (void*)offsetof(struct g_dot,size));
     glEnableVertexAttribArray(0);
@@ -280,8 +297,8 @@ struct g_gpu_object* g_add_array0(struct g_manager* man, struct g_line_array* li
     g_gpu_object_make_VBAO(&newobj);
 
     // Size of struct without vertices pointer
-    const unsigned int line_array_size = sizeof(struct g_line_array) - sizeof(union gm_dvec2*);
-    const unsigned int vertices_size = sizeof(union gm_dvec2) * cvector_size(line_array->vertices);
+    const unsigned int line_array_size = sizeof(struct g_line_array) - sizeof(struct vec2*);
+    const unsigned int vertices_size = sizeof(struct vec2) * cvector_size(line_array->vertices);
 
     // Load struct
     glBufferData(GL_ARRAY_BUFFER, vertices_size + line_array_size, line_array, GL_STATIC_DRAW);
@@ -292,17 +309,17 @@ struct g_gpu_object* g_add_array0(struct g_manager* man, struct g_line_array* li
 
     // Vertices settings
                           //id,count,type,normalized,stride                 //offset
-    glVertexAttribPointer(0, 2, GL_DOUBLE, GL_FALSE, sizeof(union gm_dvec2), (void*)0 + line_array_size);
+    glVertexAttribPointer(0, 2, GL_DOUBLE, GL_FALSE, sizeof(struct vec2), (void*)0 + line_array_size);
 
     // Struct settings, these will be same for each vert
     glVertexAttribIPointer(1, 1, GL_UNSIGNED_INT,   0, (void*)offsetof(struct g_line_array,line_type));
-    glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, 0, (void*)offsetof(struct g_line_array,color));
+    glVertexAttribPointer(2, 4, GL_DOUBLE, GL_FALSE, 0, (void*)offsetof(struct g_line_array,color));
     glVertexAttribPointer(3, 1, GL_FLOAT, GL_FALSE, 0, (void*)offsetof(struct g_line_array,width));
 
-    glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, 0, (void*)offsetof(struct g_line_array,transform));
-    glVertexAttribPointer(5, 4, GL_FLOAT, GL_FALSE, 0, (void*)offsetof(struct g_line_array,transform)+16);
-    glVertexAttribPointer(6, 4, GL_FLOAT, GL_FALSE, 0, (void*)offsetof(struct g_line_array,transform)+32);
-    glVertexAttribPointer(7, 4, GL_FLOAT, GL_FALSE, 0, (void*)offsetof(struct g_line_array,transform)+48);
+    glVertexAttribPointer(4, 4, GL_DOUBLE, GL_FALSE, 0, (void*)offsetof(struct g_line_array,transform));
+    glVertexAttribPointer(5, 4, GL_DOUBLE, GL_FALSE, 0, (void*)offsetof(struct g_line_array,transform)+4*sizeof(double));
+    glVertexAttribPointer(6, 4, GL_DOUBLE, GL_FALSE, 0, (void*)offsetof(struct g_line_array,transform)+8*sizeof(double));
+    glVertexAttribPointer(7, 4, GL_DOUBLE, GL_FALSE, 0, (void*)offsetof(struct g_line_array,transform)+12*sizeof(double));
 
     // Update attrs only one time, they are same for each vert
     glVertexAttribDivisor(1,1);

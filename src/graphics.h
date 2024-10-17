@@ -19,58 +19,58 @@ enum g_dot_type {
 };
 
 struct g_dot {
-    union gm_dvec2 pos;
-    union gm_fvec4 color;
+    struct vec2 pos;
+    struct vec4 color;
     unsigned int dot_type;
     float size;
 };
 
 struct g_arc {
-    union gm_dvec2 pos;
+    struct vec2 pos;
     double radius;
     double start_degree;
     double end_degree;
-    union gm_fvec4 color;
+    struct vec4 color;
     unsigned int line_type;
     float width;
 };
 
 struct g_segment {
-    union gm_dvec2 p1;
-    union gm_dvec2 p2;
+    struct vec2 p1;
+    struct vec2 p2;
     unsigned int line_type;
-    union gm_fvec4 color;
+    struct vec4 color;
     float width;
 };
 
 struct g_line_array {
     unsigned int line_type;
-    union gm_fvec4 color;
+    struct vec4 color;
     float width;
-    union gm_fmat4 transform;
-    cvector(union gm_dvec2) vertices;
+    struct mat4 transform;
+    cvector(struct vec2) vertices;
 };
 
 struct g_grid {
-    union gm_fvec2 size;
+    struct vec2 size;
     float step;
-    union gm_fvec4 color;
+    struct vec4 color;
     unsigned int line_type;
 };
 
 struct g_line {
-    union gm_dvec2 pos;
-    union gm_dvec2 dir;
+    struct vec2 pos;
+    struct vec2 dir;
     unsigned int line_type;
-    union gm_fvec4 color;
+    struct vec4 color;
     float width;
 };
 
 void g_init();
 
-struct g_camera* g_camera_create(union gm_ivec2* viewport_size);
+struct g_camera* g_camera_create(struct vec2i* viewport_size);
 void g_camera_free(struct g_camera* cam);
-void g_camera_move(struct g_camera* cam, union gm_dvec2* delta);
+void g_camera_move(struct g_camera* cam, struct vec2* delta);
 void g_camera_zoom(struct g_camera* cam, double delta);
 
 struct g_manager* g_manager_create();

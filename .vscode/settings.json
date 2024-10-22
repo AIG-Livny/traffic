@@ -1,0 +1,55 @@
+{
+    "activitusbar.views":[
+        {
+            "name": "task.clean",
+            "codicon": "trash"
+        },
+        {
+            "name": "task.run",
+            "codicon": "debug-start"
+        }
+    ],
+    "files.associations": {
+        "test.h": "c",
+        "cstdlib": "c",
+        "array": "cpp",
+        "string": "cpp",
+        "string_view": "cpp",
+        "geometry.h": "c",
+        "wchar.h": "c",
+        "string.h": "c",
+        "random": "c",
+        "functional": "c",
+        "optional": "c",
+        "ratio": "c",
+        "system_error": "c",
+        "tuple": "c",
+        "type_traits": "c",
+        "utility": "c",
+        "istream": "c",
+        "ostream": "c",
+        "vector": "c",
+        "glfw3.h": "c",
+        "came": "c",
+        "fontconfig.h": "c",
+        "graphics.h": "c",
+        "shaderutils.h": "c",
+        "glew.h": "c",
+        "cvector_utils.h": "c",
+        "*.ipp": "c",
+        "deque": "c",
+        "hash_map": "c",
+        "bitset": "c",
+        "initializer_list": "c",
+        "cmath": "c",
+        "limits": "c",
+        "debug.h": "c",
+        "typeinfo": "c",
+        "list": "c",
+        "unordered_map": "c",
+        "stdbool.h": "c",
+        "cvector.h": "c",
+        "cgeom.h": "c",
+        "memory.h": "c"
+    }
+}

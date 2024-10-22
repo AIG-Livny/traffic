@@ -1,0 +1,6 @@
+__pycache__
+mapyr
+obj
+bin
+*.a
+/.vscode/c_cpp_properties.json

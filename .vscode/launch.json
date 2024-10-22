@@ -1,0 +1,49 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "app",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/${input:GetName}",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "preLaunchTask": "build",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Set Disassembly Flavor to Intel",
+                    "text": "-gdb-set disassembly-flavor intel",
+                    "ignoreFailures": true
+                }
+            ]
+        },
+        {
+            "name": "mapyr",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "build.py",
+            "console": "integratedTerminal",
+            "args": ["RELEASE"]
+        }
+    ],
+    "inputs": [
+        {
+            "id": "GetName",
+            "type": "command",
+            "command": "shellCommand.execute",
+            "args": {
+                "command": "./build.py name",
+                "useFirstResult": true,
+            }
+        }
+    ]
+}

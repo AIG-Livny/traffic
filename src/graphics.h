@@ -71,6 +71,7 @@ struct g_camera* g_camera_create(struct vec2i* viewport_size);
 void g_camera_free(struct g_camera* cam);
 void g_camera_move(struct g_camera* cam, struct vec2d* delta);
 void g_camera_zoom(struct g_camera* cam, double delta);
+double g_camera_get_zoom(const struct g_camera* cam);
 
 struct g_manager* g_manager_create();
 void g_manager_free(struct g_manager* man);

@@ -9,11 +9,41 @@
 
 #include "debug.h"
 
+struct g_camera* cam;
+bool pan = false;
+
 void keyboard( GLFWwindow* window, int key, int scancode, int action, int mods ) {
     if ( key == GLFW_KEY_ESCAPE && action == GLFW_PRESS ) {
         glfwSetWindowShouldClose( window, GL_TRUE );
     }
 }
+
+void scroll( GLFWwindow* window, double xoffset, double yoffset ) {
+    g_camera_zoom( cam, -yoffset * g_camera_get_zoom(cam) * 0.04);
+}
+
+void mouse_button(GLFWwindow* window, int button, int action, int mods) {
+    if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS){
+        pan = true;
+    }
+
+    if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE){
+        pan = false;
+    }
+}
+
+double oldx;
+double oldy;
+
+void cursor_pos(GLFWwindow* window, double xpos, double ypos){
+    double zoom = g_camera_get_zoom(cam);
+    if ( pan ) {
+        g_camera_move(cam,&(struct vec2d){-((xpos - oldx) * zoom), (ypos - oldy) * zoom});
+    }
+    oldx = xpos;
+    oldy = ypos;
+}
+
 
 void error_callback( int error, const char* description ) {
     fputs( description, stderr );
@@ -46,7 +76,11 @@ int main( int argc, char **argv ) {
 
     //glfwSetFramebufferSizeCallback( window, reshape );
     //glfwSetWindowRefreshCallback( window, display );
+    glfwGetCursorPos(window, &oldx, &oldy);
     glfwSetKeyCallback( window, keyboard );
+    glfwSetScrollCallback( window, scroll );
+    glfwSetMouseButtonCallback( window, mouse_button );
+    glfwSetCursorPosCallback( window, cursor_pos );
 
     glewExperimental = GL_TRUE;
     GLenum err = glewInit();
@@ -60,7 +94,7 @@ int main( int argc, char **argv ) {
     // INIT
     g_init();
     struct g_manager* man = g_manager_create();
-    struct g_camera* cam = g_camera_create(&window_size);
+    cam = g_camera_create(&window_size);
 
     g_add_segment(man,&(struct g_segment){
         .p1 = {-100,-100},
@@ -150,22 +184,36 @@ int main( int argc, char **argv ) {
 
     cvector(struct vec2d) vertices = NULL;
     cvector_push_back(vertices, ((struct vec2d){.x=-10, .y=0}));
-    cvector_push_back(vertices, ((struct vec2d){.x=-10, .y=10}));
-    cvector_push_back(vertices, ((struct vec2d){.x=0,   .y=15}));
-    cvector_push_back(vertices, ((struct vec2d){.x=10,  .y=0}));
+    cvector_push_back(vertices, ((struct vec2d){.x=0, .y=3}));
+    cvector_push_back(vertices, ((struct vec2d){.x=4,   .y=8}));
+    cvector_push_back(vertices, ((struct vec2d){.x=8,  .y=0}));
+    cvector_push_back(vertices, ((struct vec2d){.x=15,  .y=10}));
 
     struct mat4f tr;
     mat4f_identity(&tr);
-    tr.m14 = 10;
-    tr.m24 = 10;
+    tr.m14 = 0;
+    tr.m24 = 0;
 
-    g_add_segment_array(man,&(struct g_segment_array){
+    g_add_segment_array_strip(man,&(struct g_segment_array){
         .transform = tr,
-        .line_type = g_ltDOTDASH,
+        .line_type = g_ltSOLID,
         .color = {1,0,0,1},
-        .width = 4,
+        .width = 1,
         .vertices = vertices
     });
+
+
+    cvector(struct vec2d) new_points = NULL;
+    line_array2d_equidistant(&new_points, vertices, 1);
+
+    g_add_segment_array_strip(man,&(struct g_segment_array){
+        .transform = tr,
+        .line_type = g_ltSOLID,
+        .color = {1,1,0,1},
+        .width = 1,
+        .vertices = new_points
+    });
+
     // END INIT
     DEBUG_TIMEBLOCK_STOP(startup);
 
@@ -176,8 +224,6 @@ int main( int argc, char **argv ) {
         glClear( GL_COLOR_BUFFER_BIT );
 
         g_draw(man, cam);
-
-        g_camera_zoom(cam,-0.001f);
 
         glfwSwapBuffers( window );
     }

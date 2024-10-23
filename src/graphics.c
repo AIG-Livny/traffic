@@ -36,8 +36,8 @@ struct g_camera {
 
 static inline void g_camera_update_matrices(struct g_camera* cam) {
     struct vec2d tmp = {cam->viewport_size.x, cam->viewport_size.y};
-    vec2d_divide_num(&tmp,&tmp,2);
-    vec2d_multiply_num(&tmp, &tmp, cam->zoom);
+    vec2d_divide_num(&tmp,2);
+    vec2d_multiply_num(&tmp, cam->zoom);
     mat4f_ortho(&cam->projection, -tmp.x, tmp.x, -tmp.y, tmp.y, 0.0f, 1000.0f);
 
     struct vec3f position =  {cam->position.x, cam->position.y, 1};
@@ -73,6 +73,10 @@ void g_camera_move(struct g_camera* cam, struct vec2d* delta){
 void g_camera_zoom(struct g_camera* cam, double delta){
     cam->zoom += delta;
     g_camera_update_matrices(cam);
+}
+
+double g_camera_get_zoom(const struct g_camera* cam){
+    return cam->zoom;
 }
 
 // END CAMERA

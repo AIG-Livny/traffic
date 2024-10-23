@@ -558,7 +558,7 @@ M_GEN_IMPL_quat_multiply(quat,d);
 #define M_GEN_IMPL_multiply_num(_s,_char) \
 M_GEN_multiply_num(_s,_char){ \
     for ( int i=0; i < ELEM_NUM(result); i++ ){ \
-        result->v[i] = v0->v[i] * (m##_char##_t)num; \
+        result->v[i] *= (m##_char##_t)num; \
     } \
     return result; \
 }
@@ -606,7 +606,7 @@ M_GEN_IMPL_divide(vec4,d);
 #define M_GEN_IMPL_divide_num(_s,_char) \
 M_GEN_divide_num(_s,_char){ \
     for ( int i=0; i < ELEM_NUM(result); i++ ){ \
-        result->v[i] = v0->v[i] / (m##_char##_t)num; \
+        result->v[i] /= (m##_char##_t)num; \
     } \
     return result; \
 }
@@ -806,8 +806,8 @@ M_GEN_IMPL_vec_clamp(vec4,i);
 #ifdef M_GEN_tangent
 #define M_GEN_IMPL_tangent(_s,_char) \
 M_GEN_tangent(_s,_char) { \
-    m##_char##_t a0 = v0->v[0]; \
-    m##_char##_t a1 = v0->v[1]; \
+    m##_char##_t a0 = result->v[0]; \
+    m##_char##_t a1 = result->v[1]; \
     result->v[0] = a1; \
     result->v[1] = -a0; \
     return result; \
@@ -816,6 +816,21 @@ M_GEN_tangent(_s,_char) { \
 M_GEN_IMPL_tangent(vec2,i);
 M_GEN_IMPL_tangent(vec2,f);
 M_GEN_IMPL_tangent(vec2,d);
+#endif
+
+#ifdef M_GEN_cotangent
+#define M_GEN_IMPL_cotangent(_s,_char) \
+M_GEN_cotangent(_s,_char) { \
+    m##_char##_t a0 = result->v[0]; \
+    m##_char##_t a1 = result->v[1]; \
+    result->v[0] = -a1; \
+    result->v[1] = a0; \
+    return result; \
+}
+
+M_GEN_IMPL_cotangent(vec2,i);
+M_GEN_IMPL_cotangent(vec2,f);
+M_GEN_IMPL_cotangent(vec2,d);
 #endif
 
 #ifdef M_GEN_cross
@@ -940,9 +955,9 @@ M_GEN_IMPL_length(quat,d);
 #ifdef M_GEN_normalize
 #define M_GEN_IMPL_normalize(_s,_char) \
 M_GEN_normalize(_s,_char){ \
-    m##_char##_t l = _s##_char##_length(v0); \
+    m##_char##_t l = _s##_char##_length(result); \
     for ( int i=0; i < ELEM_NUM(result); i++ ){ \
-        result->v[i] = v0->v[i] / l; \
+        result->v[i] /= l; \
     } \
     return result; \
 }
@@ -1065,8 +1080,8 @@ M_GEN_vec3_rotate(_char){ \
     x = v0->v[0]; \
     y = v0->v[1]; \
     z = v0->v[2]; \
-    struct vec3##_char norm; \
-    vec3##_char##_normalize(&norm, ra); \
+    struct vec3##_char norm = *ra; \
+    vec3##_char##_normalize(&norm); \
     rx = norm.x; \
     ry = norm.y; \
     rz = norm.z; \
@@ -1282,13 +1297,13 @@ M_GEN_line_distance_squared {
         return -1;
     } else {
         struct vec3d dir_norm = l0->direction;
-        vec3d_divide_num(&dir_norm,&dir_norm, dir_len);
+        vec3d_divide_num(&dir_norm, dir_len);
 
         struct vec3d vec_to_point = *VEC3_CAST(d,v0);
         vec3d_subtract(&vec_to_point, VEC3_CAST(d,&l0->point));
 
         md_t projection = vec3d_dot(&vec_to_point, &dir_norm);
-        vec3d_multiply_num(&dir_norm, &dir_norm, projection);
+        vec3d_multiply_num(&dir_norm, projection);
         vec3d_subtract(&vec_to_point, &dir_norm);
         return vec3d_length_squared(&vec_to_point);
     }
@@ -1302,6 +1317,80 @@ M_GEN_line_distance {
     return MdSQRT(line3i_distance_squared_vec3i(l0,v0));
 }
 
+#endif
+
+#ifdef M_GEN_line_init_from_points_vec
+M_GEN_line_init_from_points_vec(line2d, vec2d) {
+    l0->point = *v0;
+    l0->direction = *v1;
+    vec2d_subtract(&l0->direction, v0);
+    vec2d_normalize(&l0->direction);
+    return l0;
+}
+#endif
+
+#ifdef M_GEN_line_intersection
+M_GEN_line_intersection {
+    struct vec2d perpendicular = { -l0->direction.y, l0->direction.x };
+    double scalar = -vec2d_dot(&perpendicular, &l1->direction);
+
+    if (MdFABS(scalar) < MdEPSILON) {
+        //ERROR
+        return (struct vec2d){.x = NAN, .y = NAN};
+    }
+
+    double distance = (perpendicular.x * (l1->point.x - l0->point.x) + perpendicular.y * (l1->point.y - l0->point.y)) / vec2d_length(&perpendicular);
+
+    double t = distance / scalar;
+    return (struct vec2d){.x = l1->point.x + t * l1->direction.x, .y = l1->point.y + t * l1->direction.y};
+}
+#endif
+
+#ifdef M_GEN_line_array_equidistant
+M_GEN_line_array_equidistant {
+    struct line2d l0;
+    struct line2d l1;
+    struct line2d* cur_line = NULL;
+    struct line2d* prev_line = NULL;
+    struct vec2d* prev_point = NULL;
+    cvector_iterator(struct vec2d) cur_point;
+    struct vec2d perpendicular;
+    cvector_for_each_in(cur_point, input_points){
+        if ( prev_point ){
+            if(not cur_line){
+                cur_line = &l0;
+            }else{
+                if(cur_line == &l0){
+                    cur_line = &l1;
+                }else{
+                    cur_line = &l0;
+                }
+            }
+            line2d_init_from_points_vec2d(cur_line, prev_point, cur_point);
+            perpendicular = cur_line->direction;
+            vec2d_tangent(&perpendicular);
+            vec2d_multiply_num(&perpendicular, distance);
+            vec2d_add(&cur_line->point, &perpendicular);
+
+            if ( not *output_points ){
+                struct vec2d fp = *prev_point;
+                vec2d_add(&fp,&perpendicular);
+                cvector_push_back(*output_points,fp);
+            }
+        }
+
+        if(prev_line){
+            cvector_push_back(*output_points, line2d_intersection_line2d(prev_line, cur_line));
+        }
+
+        prev_point = cur_point;
+
+        prev_line=cur_line;
+    }
+    struct vec2d fp = *cvector_back(input_points);
+    vec2d_add(&fp,&perpendicular);
+    cvector_push_back(*output_points,fp);
+}
 #endif
 
 #ifdef M_GEN_vec2_linear_independent
@@ -1427,7 +1516,7 @@ M_GEN_inverse(_s,_char){ \
     struct mat2##_char inverse; \
     m##_char##_t det = mat2##_char##_determinant(a0); \
     mat2##_char##_cofactor(&inverse, a0); \
-    mat2##_char##_multiply_num(&inverse, &inverse, (m##_char##_t)(1.0) / det); \
+    mat2##_char##_multiply_num(&inverse, (m##_char##_t)(1.0) / det); \
     result->v[0] = inverse.v[0]; \
     result->v[1] = inverse.v[1]; \
     result->v[2] = inverse.v[2]; \
@@ -2571,9 +2660,9 @@ M_GEN_mat4_look_at(_char){ \
     struct vec3##_char tmp_side; \
     struct vec3##_char tmp_up; \
     vec3##_char##_subtract(&tmp_forward, position); \
-    vec3##_char##_normalize(&tmp_forward, &tmp_forward); \
+    vec3##_char##_normalize(&tmp_forward); \
     vec3##_char##_cross(&tmp_side, &tmp_forward, up); \
-    vec3##_char##_normalize(&tmp_side, &tmp_side); \
+    vec3##_char##_normalize(&tmp_side); \
     vec3##_char##_cross(&tmp_up, &tmp_side, &tmp_forward); \
     result->v[0] = tmp_side.v[0]; \
     result->v[1] = tmp_up.v[0]; \
@@ -2961,7 +3050,7 @@ M_GEN_convex_hull_update {
             struct vec3d tmp_vf = {.x=tmp_v.x, .y=tmp_v.y, .z=tmp_v.z};
             double dist = vec3d_dot(&stored_plane->triface.normal, &tmp_vf);
             if(dist > 0){
-                vec3d_multiply_num(&stored_plane->triface.normal, &stored_plane->triface.normal, -1);
+                vec3d_multiply_num(&stored_plane->triface.normal, -1);
             }
         }
 
@@ -3047,7 +3136,7 @@ M_GEN_convex_hull_update {
                         struct vec3d tmp_vf = {.x=tmp_v.x, .y=tmp_v.y, .z=tmp_v.z};
                         double dist = vec3d_dot(&new_plane->triface.normal, &tmp_vf);
                         if(dist > 0){
-                            vec3d_multiply_num(&new_plane->triface.normal, &new_plane->triface.normal, -1);
+                            vec3d_multiply_num(&new_plane->triface.normal, -1);
                         }
                     }
 

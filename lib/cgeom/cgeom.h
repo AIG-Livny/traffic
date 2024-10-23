@@ -97,6 +97,7 @@ typedef CGEOM_DOUBLE_TYPE md_t;
 // VEC2
 
 #define M_GEN_VEC2(_char) \
+typedef cvector(struct vec2##_char) cvector_vec2##_char; \
 struct vec2##_char { \
     union { \
         struct { \
@@ -337,6 +338,7 @@ struct line##_n##_char { \
 }
 
 M_GEN_LINE(3,i);
+M_GEN_LINE(2,d);
 
 // END LINE
 
@@ -583,7 +585,7 @@ M_GEN_multiply(mat4,f);
 M_GEN_multiply(mat4,d);
 #endif
 
-#define M_GEN_multiply_num(_s,_char) struct _s##_char* _s##_char##_multiply_num( struct _s##_char* result, const struct _s##_char* v0, m##_char##_t num)
+#define M_GEN_multiply_num(_s,_char) struct _s##_char* _s##_char##_multiply_num( struct _s##_char* result, m##_char##_t num )
 #ifdef M_GEN_multiply_num
 M_GEN_multiply_num(vec2,i);
 M_GEN_multiply_num(vec2,f);
@@ -617,7 +619,7 @@ M_GEN_divide(vec4,f);
 M_GEN_divide(vec4,d);
 #endif
 
-#define M_GEN_divide_num(_s,_char) struct _s##_char* _s##_char##_divide_num( struct _s##_char* result, const struct _s##_char* v0, m##_char##_t num)
+#define M_GEN_divide_num(_s,_char) struct _s##_char* _s##_char##_divide_num( struct _s##_char* result, m##_char##_t num)
 #ifdef M_GEN_divide_num
 M_GEN_divide_num(vec2,i);
 M_GEN_divide_num(vec2,f);
@@ -725,11 +727,18 @@ M_GEN_vec_clamp(vec4,d);
 M_GEN_vec_clamp(vec4,i);
 #endif
 
-#define M_GEN_tangent(_s,_char) struct _s##_char* _s##_char##_tangent( struct _s##_char* result, const struct _s##_char* v0)
+#define M_GEN_tangent(_s,_char) struct _s##_char* _s##_char##_tangent( struct _s##_char* result )
 #ifdef M_GEN_tangent
 M_GEN_tangent(vec2,i);
 M_GEN_tangent(vec2,f);
 M_GEN_tangent(vec2,d);
+#endif
+
+#define M_GEN_cotangent(_s,_char) struct _s##_char* _s##_char##_cotangent( struct _s##_char* result )
+#ifdef M_GEN_cotangent
+M_GEN_cotangent(vec2,i);
+M_GEN_cotangent(vec2,f);
+M_GEN_cotangent(vec2,d);
 #endif
 
 #define M_GEN_cross(_s,_char) struct _s##_char* _s##_char##_cross( struct _s##_char* result, const struct _s##_char* v0, const struct _s##_char* v1)
@@ -799,7 +808,7 @@ M_GEN_length(quat,f);
 M_GEN_length(quat,d);
 #endif
 
-#define M_GEN_normalize(_s,_char) struct _s##_char* _s##_char##_normalize( struct _s##_char* result, const struct _s##_char* v0)
+#define M_GEN_normalize(_s,_char) struct _s##_char* _s##_char##_normalize( struct _s##_char* result)
 #ifdef M_GEN_normalize
 M_GEN_normalize(vec2,f);
 M_GEN_normalize(vec2,d);
@@ -941,14 +950,29 @@ M_GEN_triface_distance(i,vec,3,f);
 M_GEN_triface_distance(i,vec,3,d);
 #endif
 
-#define M_GEN_line_distance_squared md_t line3i_distance_squared_vec3i(const struct line3i* l0, const struct vec3i* v0)
+#define M_GEN_line_distance_squared md_t line3i_distance_squared_vec3i( const struct line3i* l0, const struct vec3i* v0 )
 #ifdef M_GEN_line_distance_squared
 M_GEN_line_distance_squared;
 #endif
 
-#define M_GEN_line_distance md_t line3i_distance_vec3i(const struct line3i* l0, const struct vec3i* v0)
+#define M_GEN_line_distance md_t line3i_distance_vec3i( const struct line3i* l0, const struct vec3i* v0 )
 #ifdef M_GEN_line_distance
 M_GEN_line_distance;
+#endif
+
+#define M_GEN_line_init_from_points_vec(_s,_svec) struct _s* _s##_init_from_points_##_svec( struct _s* l0, const struct _svec* v0, const struct _svec* v1 )
+#ifdef M_GEN_line_init_from_points_vec
+M_GEN_line_init_from_points_vec(line2d,vec2d);
+#endif
+
+#define M_GEN_line_intersection struct vec2d line2d_intersection_line2d( const struct line2d* l0, const struct line2d* l1 )
+#ifdef M_GEN_line_intersection
+M_GEN_line_intersection;
+#endif
+
+#define M_GEN_line_array_equidistant void line_array2d_equidistant( cvector_vec2d* output_points, cvector_vec2d input_points, md_t distance )
+#ifdef M_GEN_line_array_equidistant
+M_GEN_line_array_equidistant;
 #endif
 
 #define M_GEN_vec2_linear_independent(_char) bool vec2##_char##_linear_independent(const struct vec2##_char* v0, struct vec2##_char* v1)
@@ -957,7 +981,7 @@ M_GEN_vec2_linear_independent(f);
 M_GEN_vec2_linear_independent(d);
 #endif
 
-#define M_GEN_vec3_linear_independent(_char) bool vec3##_char##_linear_independent(const struct vec3##_char* v0, struct vec3##_char* v1, struct vec3##_char* v2 )
+#define M_GEN_vec3_linear_independent(_char) bool vec3##_char##_linear_independent( const struct vec3##_char* v0, struct vec3##_char* v1, struct vec3##_char* v2 )
 #ifdef M_GEN_vec3_linear_independent
 M_GEN_vec3_linear_independent(f);
 M_GEN_vec3_linear_independent(d);

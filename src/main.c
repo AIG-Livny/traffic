@@ -4,10 +4,10 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 #include <math.h>
-
 #include "graphics.h"
-
 #include "debug.h"
+#include "nuklear.h"
+#include "nuklear_glfw_gl3.h"
 
 struct g_camera* cam;
 bool pan = false;
@@ -48,6 +48,14 @@ void cursor_pos(GLFWwindow* window, double xpos, double ypos){
 void error_callback( int error, const char* description ) {
     fputs( description, stderr );
 }
+struct car {
+
+};
+
+struct road {
+    cvector_vec2d points;
+};
+
 
 int main( int argc, char **argv ) {
     DEBUG_TIMEBLOCK_START(startup);
@@ -59,6 +67,8 @@ int main( int argc, char **argv ) {
 
     glfwWindowHint( GLFW_VISIBLE, GL_FALSE );
     glfwWindowHint( GLFW_RESIZABLE, GL_FALSE );
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 
     struct vec2i window_size = {800, 600};
 
@@ -70,9 +80,6 @@ int main( int argc, char **argv ) {
 
     glfwMakeContextCurrent( window );
     glfwSwapInterval(0);
-
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    glEnable(GL_BLEND);
 
     //glfwSetFramebufferSizeCallback( window, reshape );
     //glfwSetWindowRefreshCallback( window, display );
@@ -182,12 +189,13 @@ int main( int argc, char **argv ) {
         .size = 4
     });
 
-    cvector(struct vec2d) vertices = NULL;
-    cvector_push_back(vertices, ((struct vec2d){.x=-10, .y=0}));
-    cvector_push_back(vertices, ((struct vec2d){.x=0, .y=3}));
-    cvector_push_back(vertices, ((struct vec2d){.x=4,   .y=8}));
-    cvector_push_back(vertices, ((struct vec2d){.x=8,  .y=0}));
-    cvector_push_back(vertices, ((struct vec2d){.x=15,  .y=10}));
+    struct road road = {};
+
+    cvector_push_back(road.points, ((struct vec2d){.x=-100, .y=-100}));
+    cvector_push_back(road.points, ((struct vec2d){.x=-50, .y=0}));
+    cvector_push_back(road.points, ((struct vec2d){.x=100,   .y=100}));
+    cvector_push_back(road.points, ((struct vec2d){.x=200,  .y=50}));
+    cvector_push_back(road.points, ((struct vec2d){.x=250,  .y=10}));
 
     struct mat4f tr;
     mat4f_identity(&tr);
@@ -199,10 +207,12 @@ int main( int argc, char **argv ) {
         .line_type = g_ltSOLID,
         .color = {1,0,0,1},
         .width = 1,
-        .vertices = vertices
+        .vertices = road.points
     });
 
 
+
+    /*
     cvector(struct vec2d) new_points = NULL;
     line_array2d_equidistant(&new_points, vertices, 1);
 
@@ -213,6 +223,23 @@ int main( int argc, char **argv ) {
         .width = 1,
         .vertices = new_points
     });
+    */
+
+    // NUKLEAR
+    #define NK_SHADER_VERSION "#version 330\n"
+    struct nk_context *ctx = nk_glfw3_init(window, NK_GLFW3_INSTALL_CALLBACKS);
+    struct nk_font_atlas *atlas;
+    nk_glfw3_font_stash_begin(&atlas);
+    /*struct nk_font *droid = nk_font_atlas_add_from_file(atlas, "../../../extra_font/DroidSans.ttf", 14, 0);*/
+    /*struct nk_font *roboto = nk_font_atlas_add_from_file(atlas, "../../../extra_font/Roboto-Regular.ttf", 14, 0);*/
+    /*struct nk_font *future = nk_font_atlas_add_from_file(atlas, "../../../extra_font/kenvector_future_thin.ttf", 13, 0);*/
+    /*struct nk_font *clean = nk_font_atlas_add_from_file(atlas, "../../../extra_font/ProggyClean.ttf", 12, 0);*/
+    /*struct nk_font *tiny = nk_font_atlas_add_from_file(atlas, "../../../extra_font/ProggyTiny.ttf", 10, 0);*/
+    /*struct nk_font *cousine = nk_font_atlas_add_from_file(atlas, "../../../extra_font/Cousine-Regular.ttf", 13, 0);*/
+    nk_glfw3_font_stash_end();
+    struct nk_colorf bg;
+    bg.r = 0.10f, bg.g = 0.18f, bg.b = 0.24f, bg.a = 1.0f;
+    // END NUKLEAR
 
     // END INIT
     DEBUG_TIMEBLOCK_STOP(startup);
@@ -223,7 +250,48 @@ int main( int argc, char **argv ) {
         glClearColor(0.40,0.40,0.45,1.00);
         glClear( GL_COLOR_BUFFER_BIT );
 
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glEnable(GL_BLEND);
         g_draw(man, cam);
+
+        // NUKLEAR
+        nk_glfw3_new_frame();
+        if (nk_begin(ctx, "Демо", nk_rect(50, 50, 230, 250),
+            NK_WINDOW_BORDER|NK_WINDOW_MOVABLE|NK_WINDOW_SCALABLE|
+            NK_WINDOW_MINIMIZABLE|NK_WINDOW_TITLE))
+        {
+            enum {EASY, HARD};
+            static int op = EASY;
+            static int property = 20;
+            nk_layout_row_static(ctx, 30, 80, 1);
+            if (nk_button_label(ctx, "button"))
+                fprintf(stdout, "button pressed\n");
+
+            nk_layout_row_dynamic(ctx, 30, 2);
+            if (nk_option_label(ctx, "easy", op == EASY)) op = EASY;
+            if (nk_option_label(ctx, "hard", op == HARD)) op = HARD;
+
+            nk_layout_row_dynamic(ctx, 25, 1);
+            nk_property_int(ctx, "Compression:", 0, &property, 100, 10, 1);
+
+            nk_layout_row_dynamic(ctx, 20, 1);
+            nk_label(ctx, "background:", NK_TEXT_LEFT);
+            nk_layout_row_dynamic(ctx, 25, 1);
+            if (nk_combo_begin_color(ctx, nk_rgb_cf(bg), nk_vec2(nk_widget_width(ctx),400))) {
+                nk_layout_row_dynamic(ctx, 120, 1);
+                bg = nk_color_picker(ctx, bg, NK_RGBA);
+                nk_layout_row_dynamic(ctx, 25, 1);
+                bg.r = nk_propertyf(ctx, "#R:", 0, bg.r, 1.0f, 0.01f,0.005f);
+                bg.g = nk_propertyf(ctx, "#G:", 0, bg.g, 1.0f, 0.01f,0.005f);
+                bg.b = nk_propertyf(ctx, "#B:", 0, bg.b, 1.0f, 0.01f,0.005f);
+                bg.a = nk_propertyf(ctx, "#A:", 0, bg.a, 1.0f, 0.01f,0.005f);
+                nk_combo_end(ctx);
+            }
+        }
+        nk_end(ctx);
+
+        nk_glfw3_render(NK_ANTI_ALIASING_ON, 512 * 1024, 128 * 1024);
+        // END NUKLEAR
 
         glfwSwapBuffers( window );
     }

@@ -32,7 +32,7 @@
             "request": "launch",
             "program": "build.py",
             "console": "integratedTerminal",
-            "args": ["RELEASE"]
+            "args": ["group","RELEASE","build"]
         }
     ],
     "inputs": [

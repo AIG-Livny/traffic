@@ -13,57 +13,43 @@ def config() -> list["mapyr.ProjectConfig"]:
     result = []
 
     default = mapyr.ProjectConfig()
-    default.OUT_FILE  = "bin/traffic"
+    default.OUT_FILE  = "libnuklear.a"
     default.COMPILER  = "clang"
+    default.SRC_DIRS = ['.']
     default.INCLUDE_DIRS = [
-        'include',
+        '/usr/include/c++/12',
+        '/usr/include/x86_64-linux-gnu/c++/12',
+        '.',
     ]
-
-    default.SUBPROJECTS = [
-        'lib/shaderutils',
-        'lib/cgeom',
-        'lib/nuklear',
+    default.EXPORT_DEFINES = [
+        'NK_INCLUDE_FIXED_TYPES',
+        'NK_INCLUDE_STANDARD_IO',
+        'NK_INCLUDE_DEFAULT_ALLOCATOR',
+        'NK_INCLUDE_VERTEX_BUFFER_OUTPUT',
+        'NK_INCLUDE_FONT_BAKING',
+        'NK_INCLUDE_DEFAULT_FONT',
     ]
-
-    default.INCLUDE_DIRS = [
-        'lib/c-vector',
-    ]
-
-    default.DEFINES = [
-        'CVECTOR_LOGARITHMIC_GROWTH',
-    ]
-
-    default.PKG_SEARCH = [
-        'glfw3',
-        'glew',
-    ]
-
-    default.LIBS = [
-        'm',
-    ]
-
-    default.VSCODE_CPPTOOLS_CONFIG = True
-    default.OVERRIDE_CFLAGS = True
+    default.GROUPS = ['NUKLEAR']
 
     # Debug
     debug = copy.deepcopy(default)
-    debug.CFLAGS    = ["-g","-O0"]
-    debug.GROUPS = ['DEBUG']
+    debug.CFLAGS = ["-g","-O0"]
+    debug.GROUPS += ['DEBUG']
     debug.DEFINES += ['DEBUG']
 
     result.append(debug)
 
     # Profiler
-    #profiler = copy.deepcopy(default)
-    #profiler.CFLAGS    = ["-gdwarf-4","-O0"]
-    #profiler.GROUPS = ['PROFILER']
-    #profiler.DEFINES += ['DEBUG']
-    #result.append(profiler)
+    profiler = copy.deepcopy(default)
+    profiler.CFLAGS = ["-gdwarf-4","-O0"]
+    profiler.GROUPS += ['PROFILER']
+    profiler.DEFINES += ['DEBUG']
+    result.append(profiler)
 
     # Release
     release = copy.deepcopy(default)
-    release.GROUPS = ['RELEASE']
-    release.CFLAGS    = ["-Ofast","-flto"]
+    release.GROUPS += ['RELEASE']
+    release.CFLAGS = ["-Ofast","-flto"]
     release.LINK_EXE_FLAGS = ["-flto"]
 
     result.append(release)

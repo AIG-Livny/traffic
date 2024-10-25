@@ -11,6 +11,7 @@
 
 struct g_camera* cam;
 bool pan = false;
+struct nk_context *ctx;
 
 void keyboard( GLFWwindow* window, int key, int scancode, int action, int mods ) {
     if ( key == GLFW_KEY_ESCAPE && action == GLFW_PRESS ) {
@@ -19,16 +20,24 @@ void keyboard( GLFWwindow* window, int key, int scancode, int action, int mods )
 }
 
 void scroll( GLFWwindow* window, double xoffset, double yoffset ) {
-    g_camera_zoom( cam, -yoffset * g_camera_get_zoom(cam) * 0.04);
+    if ( nk_item_is_any_active(ctx) ) {
+        nk_gflw3_scroll_callback(window,xoffset,yoffset);
+    } else {
+        g_camera_zoom( cam, -yoffset * g_camera_get_zoom(cam) * 0.04);
+    }
 }
 
 void mouse_button(GLFWwindow* window, int button, int action, int mods) {
-    if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS){
-        pan = true;
-    }
+    if ( nk_item_is_any_active(ctx) ) {
+        nk_glfw3_mouse_button_callback(window,button,action,mods);
+    } else {
+        if (button == GLFW_MOUSE_BUTTON_MIDDLE && action == GLFW_PRESS){
+            pan = true;
+        }
 
-    if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE){
-        pan = false;
+        if (button == GLFW_MOUSE_BUTTON_MIDDLE && action == GLFW_RELEASE){
+            pan = false;
+        }
     }
 }
 
@@ -88,6 +97,7 @@ int main( int argc, char **argv ) {
     glfwSetScrollCallback( window, scroll );
     glfwSetMouseButtonCallback( window, mouse_button );
     glfwSetCursorPosCallback( window, cursor_pos );
+    glfwSetCharCallback(window, nk_glfw3_char_callback);
 
     glewExperimental = GL_TRUE;
     GLenum err = glewInit();
@@ -227,16 +237,17 @@ int main( int argc, char **argv ) {
 
     // NUKLEAR
     #define NK_SHADER_VERSION "#version 330\n"
-    struct nk_context *ctx = nk_glfw3_init(window, NK_GLFW3_INSTALL_CALLBACKS);
+    ctx = nk_glfw3_init(window, NK_GLFW3_DEFAULT);
     struct nk_font_atlas *atlas;
+    struct nk_font_config config = nk_font_config(14);
+    config.oversample_h = 4;
+    config.oversample_v = 4;
+    config.range = nk_font_cyrillic_glyph_ranges();
     nk_glfw3_font_stash_begin(&atlas);
-    /*struct nk_font *droid = nk_font_atlas_add_from_file(atlas, "../../../extra_font/DroidSans.ttf", 14, 0);*/
-    /*struct nk_font *roboto = nk_font_atlas_add_from_file(atlas, "../../../extra_font/Roboto-Regular.ttf", 14, 0);*/
-    /*struct nk_font *future = nk_font_atlas_add_from_file(atlas, "../../../extra_font/kenvector_future_thin.ttf", 13, 0);*/
-    /*struct nk_font *clean = nk_font_atlas_add_from_file(atlas, "../../../extra_font/ProggyClean.ttf", 12, 0);*/
-    /*struct nk_font *tiny = nk_font_atlas_add_from_file(atlas, "../../../extra_font/ProggyTiny.ttf", 10, 0);*/
-    /*struct nk_font *cousine = nk_font_atlas_add_from_file(atlas, "../../../extra_font/Cousine-Regular.ttf", 13, 0);*/
+    struct nk_font *font = nk_font_atlas_add_from_file(atlas,  "lib/nuklear/extra_font/Ubuntu-R.ttf", 13, &config);
     nk_glfw3_font_stash_end();
+    nk_style_set_font(ctx, &font->handle);
+
     struct nk_colorf bg;
     bg.r = 0.10f, bg.g = 0.18f, bg.b = 0.24f, bg.a = 1.0f;
     // END NUKLEAR

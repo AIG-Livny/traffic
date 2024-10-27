@@ -65,11 +65,19 @@ struct g_segment_array {
     cvector(struct vec2d) vertices;
 };
 
+struct g_test {
+    struct vec2d p1;
+    struct vec2d p2;
+    unsigned int line_type;
+    struct vec4f color;
+    float width;
+};
+
 void g_init();
 
 struct g_camera* g_camera_create(struct vec2i* viewport_size);
 void g_camera_free(struct g_camera* cam);
-void g_camera_move(struct g_camera* cam, struct vec2d* delta);
+void g_camera_move(struct g_camera* cam, struct vec2d delta);
 void g_camera_zoom(struct g_camera* cam, double delta);
 double g_camera_get_zoom(const struct g_camera* cam);
 
@@ -82,6 +90,7 @@ struct g_gpu_object* g_add_arc(struct g_manager* man, struct g_arc* arc);
 struct g_gpu_object* g_add_dot(struct g_manager* man, struct g_dot* dot);
 struct g_gpu_object* g_add_segment_array_strip(struct g_manager* man, struct g_segment_array* line_array);
 struct g_gpu_object* g_add_segment_array(struct g_manager* man, struct g_segment_array* line_array);
+struct g_gpu_object* g_add_test(struct g_manager* man, struct g_test* test);
 void g_draw(struct g_manager* man, struct g_camera* cam);
 
 #endif

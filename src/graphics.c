@@ -12,6 +12,7 @@ GLuint line_shader;
 GLuint arc_shader;
 GLuint dot_shader;
 GLuint segment_array_shader;
+GLuint test_shader;
 
 void g_init(){
     su_load_shader(&segment_shader, "shaders/segment");
@@ -19,7 +20,7 @@ void g_init(){
     su_load_shader(&line_shader, "shaders/line");
     su_load_shader(&arc_shader, "shaders/arc");
     su_load_shader(&dot_shader, "shaders/dot");
-    su_load_shader(&segment_array_shader, "shaders/segment_array");
+    su_load_shader(&test_shader, "shaders/test");
 }
 
 // CAMERA
@@ -35,18 +36,16 @@ struct g_camera {
 };
 
 static inline void g_camera_update_matrices(struct g_camera* cam) {
-    struct vec2d tmp = {cam->viewport_size.x, cam->viewport_size.y};
-    vec2d_divide_num(&tmp,2);
-    vec2d_multiply_num(&tmp, cam->zoom);
-    mat4f_ortho(&cam->projection, -tmp.x, tmp.x, -tmp.y, tmp.y, 0.0f, 1000.0f);
+    struct vec2d tmp = vec2d_multiply_num(vec2d_divide_num(VEC2_CAST(d,cam->viewport_size),2), cam->zoom);
+    cam->projection = mat4f_ortho(-tmp.x, tmp.x, -tmp.y, tmp.y, 0.0f, 1000.0f);
 
     struct vec3f position =  {cam->position.x, cam->position.y, 1};
     struct vec3f target   =  {cam->position.x, cam->position.y, 0};
     struct vec3f up       =  {0,1,0};
 
-    mat4f_look_at(&cam->view, &position, &target, &up);
-    mat4f_multiply_mat4f(&cam->unproject, &cam->projection, &cam->view);
-    mat4f_inverse(&cam->unproject, &cam->unproject);
+    cam->view = mat4f_look_at(position, target, up);
+    cam->unproject = mat4f_multiply_mat4f(cam->projection, cam->view);
+    cam->unproject = mat4f_inverse(cam->unproject);
 }
 
 struct g_camera* g_camera_create(struct vec2i* viewport_size) {
@@ -65,8 +64,8 @@ void g_camera_free(struct g_camera* cam){
     free(cam);
 }
 
-void g_camera_move(struct g_camera* cam, struct vec2d* delta){
-    vec2d_add(&cam->position, delta);
+void g_camera_move(struct g_camera* cam, struct vec2d delta){
+    cam->position = vec2d_add(cam->position, delta);
     g_camera_update_matrices(cam);
 }
 
@@ -118,6 +117,7 @@ struct g_manager {
     cvector(struct g_gpu_object) grids;
     cvector(struct g_gpu_object) segment_arrays_strip;
     cvector(struct g_gpu_object) segment_arrays;
+    cvector(struct g_gpu_object) tests;
 };
 
 struct g_manager* g_manager_create(){
@@ -138,6 +138,7 @@ void g_manager_free(struct g_manager* man){
     cvector_for_each_in(obj, man->lines)                { g_gpu_object_free(obj);}
     cvector_for_each_in(obj, man->segment_arrays_strip) { g_gpu_object_free(obj);}
     cvector_for_each_in(obj, man->segment_arrays)       { g_gpu_object_free(obj);}
+    cvector_for_each_in(obj, man->tests)                { g_gpu_object_free(obj);}
     free(man);
 }
 
@@ -343,6 +344,43 @@ struct g_gpu_object* g_add_segment_array(struct g_manager* man, struct g_segment
     return g_add_array0(man,line_array,&man->segment_arrays);
 }
 
+struct g_gpu_object* g_add_test(struct g_manager* man, struct g_test* test){
+    struct g_gpu_object newobj;
+
+    float half_width = (test->width /2.0);
+    struct vec2f dir = vec2f_normalize(vec2f_subtract(VEC2_CAST(f,test->p2), VEC2_CAST(f,test->p1)));
+
+    struct vec2f perpendicular = vec2f_tangent(dir);
+
+    struct vec2f vertices[] = {
+        vec2f_subtract(VEC2_CAST(f,test->p1),perpendicular),
+        vec2f_add(VEC2_CAST(f,test->p1),perpendicular),
+        vec2f_add(VEC2_CAST(f,test->p2),perpendicular),
+        vec2f_subtract(VEC2_CAST(f,test->p2),perpendicular),
+    };
+
+    g_gpu_object_make_VBAO(&newobj);
+
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices) + sizeof(struct g_test), NULL, GL_STATIC_DRAW);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
+    glBufferSubData(GL_ARRAY_BUFFER, sizeof(vertices), sizeof(struct g_test), test);
+
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(struct vec2f), (void*)0);
+
+    glVertexAttribIPointer(1, 1, GL_UNSIGNED_INT,   sizeof(struct  g_test), (void*)offsetof(struct g_test,line_type));
+    glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, sizeof(struct  g_test), (void*)offsetof(struct g_test,color));
+
+    glVertexAttribDivisor(1,4);
+    glVertexAttribDivisor(2,4);
+
+    glEnableVertexAttribArray(0);
+    glEnableVertexAttribArray(1);
+    glEnableVertexAttribArray(2);
+
+    cvector_push_back(man->tests, newobj);
+    return cvector_back(man->tests);
+}
+
 void g_draw(struct g_manager* man, struct g_camera* cam) {
     cvector_iterator(struct g_gpu_object) obj;
 
@@ -399,6 +437,14 @@ void g_draw(struct g_manager* man, struct g_camera* cam) {
         cvector_for_each_in(obj, man->segment_arrays){
             glBindVertexArray(obj->vertex_array_object);
             glDrawArrays(GL_LINES, 1, obj->vertices_count);
+        }
+    }
+
+    if ( cvector_size(man->tests) ) {
+        g_use_shader(test_shader, cam);
+        cvector_for_each_in(obj, man->tests){
+            glBindVertexArray(obj->vertex_array_object);
+            glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
         }
     }
 }

@@ -10,6 +10,13 @@
 #include "cvector.h"
 #include "cvector_utils.h"
 
+typedef void (*errorcb_t)(int);
+void m_set_error_callback(errorcb_t cb);
+
+// Error when one of intermediate value degenerates
+#define M_ERROR_CALCULATION 1
+
+
 #define VEC2_SIZE 2
 #define VEC3_SIZE 3
 #define VEC4_SIZE 4
@@ -33,8 +40,37 @@
 #define M_WIDTH    2
 #define M_HEIGHT   3
 
-// Error when one of intermediate value degenerates
-#define M_ERROR_CALCULATION 1
+#define M_MAT2_M11 0
+#define M_MAT2_M21 1
+#define M_MAT2_M12 2
+#define M_MAT2_M22 3
+
+#define M_MAT3_M11 0
+#define M_MAT3_M21 1
+#define M_MAT3_M31 2
+#define M_MAT3_M12 3
+#define M_MAT3_M22 4
+#define M_MAT3_M32 5
+#define M_MAT3_M13 6
+#define M_MAT3_M23 7
+#define M_MAT3_M33 8
+
+#define M_MAT4_M11 0
+#define M_MAT4_M21 1
+#define M_MAT4_M31 2
+#define M_MAT4_M41 3
+#define M_MAT4_M12 4
+#define M_MAT4_M22 5
+#define M_MAT4_M32 6
+#define M_MAT4_M42 7
+#define M_MAT4_M13 8
+#define M_MAT4_M23 9
+#define M_MAT4_M33 10
+#define M_MAT4_M43 11
+#define M_MAT4_M14 12
+#define M_MAT4_M24 13
+#define M_MAT4_M34 14
+#define M_MAT4_M44 15
 
 #if !defined(CGEOM_INT_TYPE)
 typedef int32_t mi_t;
@@ -160,6 +196,7 @@ M_GEN_VEC3(d);
 // VEC4
 
 #define M_GEN_VEC4(_char) \
+typedef cvector(struct vec3##_char) cvector_vec4##_char; \
 struct vec4##_char { \
     union { \
         struct { \
@@ -455,10 +492,10 @@ M_GEN_to_degrees(f);
 M_GEN_to_degrees(d);
 #endif
 
-#define VEC2_CAST(_char, vect) &(struct vec2##_char){.x=(vect)->x, .y=(vect)->y}
-#define VEC3_CAST(_char, vect) &(struct vec3##_char){.x=(vect)->x, .y=(vect)->y, .z=(vect)->z}
+#define VEC2_CAST(_char, vect) (struct vec2##_char){.x=(vect).x, .y=(vect).y}
+#define VEC3_CAST(_char, vect) (struct vec3##_char){.x=(vect).x, .y=(vect).y, .z=(vect).z}
 
-#define M_GEN_is_zero(_s,_char) bool _s##_char##_is_zero(const struct _s##_char* v0)
+#define M_GEN_is_zero(_s,_char) bool _s##_char##_is_zero(const struct _s##_char v0)
 #ifdef M_GEN_is_zero
 M_GEN_is_zero(vec2,i);
 M_GEN_is_zero(vec2,f);
@@ -514,7 +551,7 @@ M_GEN_sign(vec4,f);
 M_GEN_sign(vec4,d);
 #endif
 
-#define M_GEN_add(_s,_char) struct _s##_char* _s##_char##_add( struct _s##_char* result, const struct _s##_char* v0)
+#define M_GEN_add(_s,_char) struct _s##_char _s##_char##_add( struct _s##_char v0, const struct _s##_char v1)
 #ifdef M_GEN_add
 M_GEN_add(vec2,i);
 M_GEN_add(vec2,f);
@@ -540,7 +577,7 @@ M_GEN_add_num(vec4,f);
 M_GEN_add_num(vec4,d);
 #endif
 
-#define M_GEN_subtract(_s,_char) struct _s##_char* _s##_char##_subtract( struct _s##_char* result, const struct _s##_char* v0)
+#define M_GEN_subtract(_s,_char) struct _s##_char _s##_char##_subtract( struct _s##_char v0, const struct _s##_char v1)
 #ifdef M_GEN_subtract
 M_GEN_subtract(vec2,i);
 M_GEN_subtract(vec2,f);
@@ -566,7 +603,7 @@ M_GEN_subtract_num(vec4,f);
 M_GEN_subtract_num(vec4,d);
 #endif
 
-#define M_GEN_multiply(_s,_char) struct _s##_char* _s##_char##_multiply_##_s##_char( struct _s##_char* result, const struct _s##_char* a0, const struct _s##_char* a1)
+#define M_GEN_multiply(_s,_char) struct _s##_char _s##_char##_multiply_##_s##_char( struct _s##_char a0, struct _s##_char a1 )
 #ifdef M_GEN_multiply
 M_GEN_multiply(vec2,i);
 M_GEN_multiply(vec2,f);
@@ -585,7 +622,7 @@ M_GEN_multiply(mat4,f);
 M_GEN_multiply(mat4,d);
 #endif
 
-#define M_GEN_multiply_num(_s,_char) struct _s##_char* _s##_char##_multiply_num( struct _s##_char* result, m##_char##_t num )
+#define M_GEN_multiply_num(_s,_char) struct _s##_char _s##_char##_multiply_num( struct _s##_char v0, m##_char##_t num )
 #ifdef M_GEN_multiply_num
 M_GEN_multiply_num(vec2,i);
 M_GEN_multiply_num(vec2,f);
@@ -619,7 +656,7 @@ M_GEN_divide(vec4,f);
 M_GEN_divide(vec4,d);
 #endif
 
-#define M_GEN_divide_num(_s,_char) struct _s##_char* _s##_char##_divide_num( struct _s##_char* result, m##_char##_t num)
+#define M_GEN_divide_num(_s,_char) struct _s##_char _s##_char##_divide_num( struct _s##_char v0, m##_char##_t num )
 #ifdef M_GEN_divide_num
 M_GEN_divide_num(vec2,i);
 M_GEN_divide_num(vec2,f);
@@ -654,7 +691,7 @@ M_GEN_snap_num(vec4,f);
 M_GEN_snap_num(vec4,d);
 #endif
 
-#define M_GEN_negative(_s,_char) struct _s##_char* _s##_char##_negative( struct _s##_char* result, const struct _s##_char* v0)
+#define M_GEN_negative(_s,_char) struct _s##_char _s##_char##_negative( struct _s##_char v0 )
 #ifdef M_GEN_negative
 M_GEN_negative(vec2,f);
 M_GEN_negative(vec2,d);
@@ -727,21 +764,21 @@ M_GEN_vec_clamp(vec4,d);
 M_GEN_vec_clamp(vec4,i);
 #endif
 
-#define M_GEN_tangent(_s,_char) struct _s##_char* _s##_char##_tangent( struct _s##_char* result )
+#define M_GEN_tangent(_s,_char) struct _s##_char _s##_char##_tangent( struct _s##_char v0 )
 #ifdef M_GEN_tangent
 M_GEN_tangent(vec2,i);
 M_GEN_tangent(vec2,f);
 M_GEN_tangent(vec2,d);
 #endif
 
-#define M_GEN_cotangent(_s,_char) struct _s##_char* _s##_char##_cotangent( struct _s##_char* result )
+#define M_GEN_cotangent(_s,_char) struct _s##_char _s##_char##_cotangent( struct _s##_char v0 )
 #ifdef M_GEN_cotangent
 M_GEN_cotangent(vec2,i);
 M_GEN_cotangent(vec2,f);
 M_GEN_cotangent(vec2,d);
 #endif
 
-#define M_GEN_cross(_s,_char) struct _s##_char* _s##_char##_cross( struct _s##_char* result, const struct _s##_char* v0, const struct _s##_char* v1)
+#define M_GEN_cross(_s,_char) struct _s##_char _s##_char##_cross( struct _s##_char v0, struct _s##_char v1 )
 #ifdef M_GEN_cross
 M_GEN_cross(vec3,i);
 M_GEN_cross(vec3,f);
@@ -784,7 +821,7 @@ M_GEN_round(vec4,f);
 M_GEN_round(vec4,d);
 #endif
 
-#define M_GEN_length_squared(_s,_char) m##_char##_t _s##_char##_length_squared( const struct _s##_char* v0 )
+#define M_GEN_length_squared(_s,_char) m##_char##_t _s##_char##_length_squared( const struct _s##_char v0 )
 #ifdef M_GEN_length_squared
 M_GEN_length_squared(vec2,f);
 M_GEN_length_squared(vec2,d);
@@ -796,7 +833,7 @@ M_GEN_length_squared(quat,f);
 M_GEN_length_squared(quat,d);
 #endif
 
-#define M_GEN_length(_s,_char) m##_char##_t _s##_char##_length( const struct _s##_char* v0 )
+#define M_GEN_length(_s,_char) m##_char##_t _s##_char##_length( const struct _s##_char v0 )
 #ifdef M_GEN_length
 M_GEN_length(vec2,f);
 M_GEN_length(vec2,d);
@@ -808,7 +845,7 @@ M_GEN_length(quat,f);
 M_GEN_length(quat,d);
 #endif
 
-#define M_GEN_normalize(_s,_char) struct _s##_char* _s##_char##_normalize( struct _s##_char* result)
+#define M_GEN_normalize(_s,_char) struct _s##_char _s##_char##_normalize( struct _s##_char v0 )
 #ifdef M_GEN_normalize
 M_GEN_normalize(vec2,f);
 M_GEN_normalize(vec2,d);
@@ -818,7 +855,7 @@ M_GEN_normalize(vec4,f);
 M_GEN_normalize(vec4,d);
 #endif
 
-#define M_GEN_dot(_s,_char) m##_char##_t _s##_char##_dot( const struct _s##_char* v0, const struct _s##_char* v1 )
+#define M_GEN_dot(_s,_char) m##_char##_t _s##_char##_dot( const struct _s##_char v0, const struct _s##_char v1 )
 #ifdef M_GEN_dot
 M_GEN_dot(vec2,f);
 M_GEN_dot(vec2,d);
@@ -830,7 +867,7 @@ M_GEN_dot(quat,f);
 M_GEN_dot(quat,d);
 #endif
 
-#define M_GEN_project(_s,_char) struct _s##_char* _s##_char##_project( struct _s##_char* result, const struct _s##_char* v0, const struct _s##_char* v1 )
+#define M_GEN_project(_s,_char) struct _s##_char _s##_char##_project( struct _s##_char v0, struct _s##_char v1 )
 #ifdef M_GEN_project
 M_GEN_project(vec2,f);
 M_GEN_project(vec2,d);
@@ -840,7 +877,7 @@ M_GEN_project(vec4,f);
 M_GEN_project(vec4,d);
 #endif
 
-#define M_GEN_slide(_s,_char) struct _s##_char* _s##_char##_slide( struct _s##_char* result, const struct _s##_char* v0, const struct _s##_char* normal )
+#define M_GEN_slide(_s,_char) struct _s##_char _s##_char##_slide( struct _s##_char v0, struct _s##_char normal )
 #ifdef M_GEN_slide
 M_GEN_slide(vec2,f);
 M_GEN_slide(vec2,d);
@@ -850,7 +887,7 @@ M_GEN_slide(vec4,f);
 M_GEN_slide(vec4,d);
 #endif
 
-#define M_GEN_reflect(_s,_char) struct _s##_char* _s##_char##_reflect( struct _s##_char* result, const struct _s##_char* v0, const struct _s##_char* normal )
+#define M_GEN_reflect(_s,_char) struct _s##_char _s##_char##_reflect( struct _s##_char v0, struct _s##_char normal )
 #ifdef M_GEN_reflect
 M_GEN_reflect(vec2,f);
 M_GEN_reflect(vec2,d);
@@ -860,13 +897,13 @@ M_GEN_reflect(vec4,f);
 M_GEN_reflect(vec4,d);
 #endif
 
-#define M_GEN_vec2_rotate(_char) struct vec2##_char* vec2##_char##_rotate( struct vec2##_char* result, const struct vec2##_char* v0, m##_char##_t f )
+#define M_GEN_vec2_rotate(_char) struct vec2##_char vec2##_char##_rotate( struct vec2##_char v0, m##_char##_t f )
 #ifdef M_GEN_vec2_rotate
 M_GEN_vec2_rotate(f);
 M_GEN_vec2_rotate(d);
 #endif
 
-#define M_GEN_vec3_rotate(_char) struct vec3##_char* vec3##_char##_rotate( struct vec3##_char* result, const struct vec3##_char* v0, const struct vec3##_char* ra, m##_char##_t f )
+#define M_GEN_vec3_rotate(_char) struct vec3##_char vec3##_char##_rotate( struct vec3##_char v0, struct vec3##_char ra, m##_char##_t f )
 #ifdef M_GEN_vec3_rotate
 M_GEN_vec3_rotate(f);
 M_GEN_vec3_rotate(d);
@@ -943,29 +980,29 @@ M_GEN_distance(f,vec4,f);
 M_GEN_distance(d,vec4,d);
 #endif
 
-#define M_GEN_triface_distance(_trichar,_s,_n,_char) m##_char##_t triface##_n##_trichar##_distance_##_s##_n##_char( const struct triface##_n##_trichar* t0, const struct _s##_n##_char* v0 )
+#define M_GEN_triface_distance(_trichar,_s,_n,_char) m##_char##_t triface##_n##_trichar##_distance_##_s##_n##_char( const struct triface##_n##_trichar t0, const struct _s##_n##_char v0 )
 #ifdef M_GEN_triface_distance
 M_GEN_triface_distance(i,vec,3,i);
 M_GEN_triface_distance(i,vec,3,f);
 M_GEN_triface_distance(i,vec,3,d);
 #endif
 
-#define M_GEN_line_distance_squared md_t line3i_distance_squared_vec3i( const struct line3i* l0, const struct vec3i* v0 )
+#define M_GEN_line_distance_squared md_t line3i_distance_squared_vec3i( const struct line3i l0, const struct vec3i v0 )
 #ifdef M_GEN_line_distance_squared
 M_GEN_line_distance_squared;
 #endif
 
-#define M_GEN_line_distance md_t line3i_distance_vec3i( const struct line3i* l0, const struct vec3i* v0 )
+#define M_GEN_line_distance md_t line3i_distance_vec3i( const struct line3i l0, const struct vec3i v0 )
 #ifdef M_GEN_line_distance
 M_GEN_line_distance;
 #endif
 
-#define M_GEN_line_init_from_points_vec(_s,_svec) struct _s* _s##_init_from_points_##_svec( struct _s* l0, const struct _svec* v0, const struct _svec* v1 )
+#define M_GEN_line_init_from_points_vec(_s,_svec) struct _s _s##_init_from_points_##_svec( struct _svec v0, struct _svec v1 )
 #ifdef M_GEN_line_init_from_points_vec
 M_GEN_line_init_from_points_vec(line2d,vec2d);
 #endif
 
-#define M_GEN_line_intersection struct vec2d line2d_intersection_line2d( const struct line2d* l0, const struct line2d* l1 )
+#define M_GEN_line_intersection struct vec2d line2d_intersection_line2d( const struct line2d l0, const struct line2d l1 )
 #ifdef M_GEN_line_intersection
 M_GEN_line_intersection;
 #endif
@@ -1005,19 +1042,19 @@ M_GEN_null(quat,f);
 M_GEN_null(quat,d);
 #endif
 
-#define M_GEN_quat_divide(_s,_char) struct _s##_char* _s##_char##_divide(struct _s##_char* result, const struct _s##_char* q0, const struct _s##_char* q1)
+#define M_GEN_quat_divide(_s,_char) struct _s##_char _s##_char##_divide( struct _s##_char q0, struct _s##_char q1 )
 #ifdef M_GEN_quat_divide
 M_GEN_quat_divide(quat,f);
 M_GEN_quat_divide(quat,d);
 #endif
 
-#define M_GEN_quat_conjugate(_s,_char) struct _s##_char* _s##_char##_conjugate(struct _s##_char* result, const struct _s##_char* q0)
+#define M_GEN_quat_conjugate(_s,_char) struct _s##_char _s##_char##_conjugate( struct _s##_char q0 )
 #ifdef M_GEN_quat_conjugate
 M_GEN_quat_conjugate(quat,f);
 M_GEN_quat_conjugate(quat,d);
 #endif
 
-#define M_GEN_inverse(_s,_char) struct _s##_char* _s##_char##_inverse(struct _s##_char* result, const struct _s##_char* a0)
+#define M_GEN_inverse(_s,_char) struct _s##_char _s##_char##_inverse( struct _s##_char a0 )
 #ifdef M_GEN_inverse
 M_GEN_inverse(mat2,f);
 M_GEN_inverse(mat2,d);
@@ -1029,7 +1066,7 @@ M_GEN_inverse(quat,f);
 M_GEN_inverse(quat,d);
 #endif
 
-#define M_GEN_quat_normalize(_s,_char) struct _s##_char* _s##_char##_normalize(struct _s##_char* result, const struct _s##_char* q0)
+#define M_GEN_quat_normalize(_s,_char) struct _s##_char _s##_char##_normalize( struct _s##_char q0 )
 #ifdef M_GEN_quat_normalize
 M_GEN_quat_normalize(quat,f);
 M_GEN_quat_normalize(quat,d);
@@ -1041,31 +1078,31 @@ M_GEN_quat_power(quat,f);
 M_GEN_quat_power(quat,d);
 #endif
 
-#define M_GEN_quat_from_axis_angle(_s,_char) struct _s##_char* _s##_char##_from_axis_angle(struct _s##_char* result, const struct _s##_char* v0, m##_char##_t angle)
+#define M_GEN_quat_from_axis_angle(_s,_char) struct _s##_char* _s##_char##_from_axis_angle(struct _s##_char* result, const struct _s##_char* v0, m##_char##_t angle )
 #ifdef M_GEN_quat_from_axis_angle
 M_GEN_quat_from_axis_angle(quat,f);
 M_GEN_quat_from_axis_angle(quat,d);
 #endif
 
-#define M_GEN_quat_from_vec3(_char) struct quat##_char* quat##_char##_from_vec3(struct quat##_char* result, const struct vec3##_char* v0, struct vec3##_char* v1)
+#define M_GEN_quat_from_vec3(_char) struct quat##_char quat##_char##_from_vec3( struct vec3##_char v0, struct vec3##_char v1 )
 #ifdef M_GEN_quat_from_vec3
 M_GEN_quat_from_vec3(f);
 M_GEN_quat_from_vec3(d);
 #endif
 
-#define M_GEN_quat_from_mat4(_s,_char) struct _s##_char* _s##_char##_from_mat4(struct _s##_char* result, const struct mat4##_char* m0)
+#define M_GEN_quat_from_mat4(_s,_char) struct _s##_char* _s##_char##_from_mat4( struct _s##_char* result, const struct mat4##_char* m0 )
 #ifdef M_GEN_quat_from_mat4
 M_GEN_quat_from_mat4(quat,f);
 M_GEN_quat_from_mat4(quat,d);
 #endif
 
-#define M_GEN_quat_slerp(_s,_char) struct _s##_char* _s##_char##_slerp(struct _s##_char* result, const struct _s##_char* q0, const struct _s##_char* q1, m##_char##_t f)
+#define M_GEN_quat_slerp(_s,_char) struct _s##_char _s##_char##_slerp( struct _s##_char q0, struct _s##_char q1, m##_char##_t f )
 #ifdef M_GEN_quat_slerp
 M_GEN_quat_slerp(quat,f);
 M_GEN_quat_slerp(quat,d);
 #endif
 
-#define M_GEN_quat_angle(_s,_char) m##_char##_t _s##_char##_angle(const struct _s##_char* q0, const struct _s##_char* q1)
+#define M_GEN_quat_angle(_s,_char) m##_char##_t _s##_char##_angle( struct _s##_char q0, struct _s##_char q1 )
 #ifdef M_GEN_quat_angle
 M_GEN_quat_angle(quat,f);
 M_GEN_quat_angle(quat,d);
@@ -1081,7 +1118,7 @@ M_GEN_identity(mat4,f);
 M_GEN_identity(mat4,d);
 #endif
 
-#define M_GEN_determinant(_s,_char) m##_char##_t _s##_char##_determinant(const struct _s##_char* m0)
+#define M_GEN_determinant(_s,_char) m##_char##_t _s##_char##_determinant( struct _s##_char m0 )
 #ifdef M_GEN_determinant
 M_GEN_determinant(mat2,f);
 M_GEN_determinant(mat2,d);
@@ -1101,7 +1138,7 @@ M_GEN_transpose(mat4,f);
 M_GEN_transpose(mat4,d);
 #endif
 
-#define M_GEN_cofactor(_s,_char) struct _s##_char* _s##_char##_cofactor(struct _s##_char* result, const struct _s##_char* m0)
+#define M_GEN_cofactor(_s,_char) struct _s##_char _s##_char##_cofactor( struct _s##_char m0 )
 #ifdef M_GEN_cofactor
 M_GEN_cofactor(mat2,f);
 M_GEN_cofactor(mat2,d);
@@ -1191,13 +1228,13 @@ M_GEN_translate(mat4,f);
 M_GEN_translate(mat4,d);
 #endif
 
-#define M_GEN_mat4_look_at(_char) struct mat4##_char* mat4##_char##_look_at(struct mat4##_char* result, const struct vec3##_char* position, const struct vec3##_char* target, const struct vec3##_char* up)
+#define M_GEN_mat4_look_at(_char) struct mat4##_char mat4##_char##_look_at( struct vec3##_char position, struct vec3##_char target, struct vec3##_char up )
 #ifdef M_GEN_mat4_look_at
 M_GEN_mat4_look_at(f);
 M_GEN_mat4_look_at(d);
 #endif
 
-#define M_GEN_ortho(_s,_char) struct _s##_char* _s##_char##_ortho(struct _s##_char* result, m##_char##_t l, m##_char##_t r, m##_char##_t b, m##_char##_t t, m##_char##_t n, m##_char##_t f)
+#define M_GEN_ortho(_s,_char) struct _s##_char _s##_char##_ortho( m##_char##_t l, m##_char##_t r, m##_char##_t b, m##_char##_t t, m##_char##_t n, m##_char##_t f )
 #ifdef M_GEN_ortho
 M_GEN_ortho(mat4,f);
 M_GEN_ortho(mat4,d);

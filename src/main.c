@@ -52,7 +52,7 @@ double oldy;
 void cursor_pos(GLFWwindow* window, double xpos, double ypos){
     double zoom = g_camera_get_zoom(cam);
     if ( pan ) {
-        g_camera_move(cam,&(struct vec2d){-((xpos - oldx) * zoom), (ypos - oldy) * zoom});
+        g_camera_move(cam,(struct vec2d){-((xpos - oldx) * zoom), (ypos - oldy) * zoom});
     }
     oldx = xpos;
     oldy = ypos;
@@ -75,7 +75,7 @@ double sfps = 0;
 #define USEC_IN_SECOND 1000000.0
 #define TARGET_SFPS 60.0
 #define TARGET_USECS (USEC_IN_SECOND/TARGET_SFPS)
-#define TARGET_SECS ((TARGET_USECS/USEC_IN_SECOND))
+#define TARGET_SECS (TARGET_USECS/USEC_IN_SECOND)
 
 void* simulation_thread(void* vargp){
     double previous_time    = glfwGetTime() - TARGET_SECS;
@@ -244,8 +244,8 @@ int main( int argc, char **argv ) {
     struct road road = {};
 
     cvector_push_back(road.points, ((struct vec2d){.x=-100, .y=-100}));
-    cvector_push_back(road.points, ((struct vec2d){.x=-50, .y=0}));
-    cvector_push_back(road.points, ((struct vec2d){.x=100,   .y=100}));
+    cvector_push_back(road.points, ((struct vec2d){.x=-50,  .y=0}));
+    cvector_push_back(road.points, ((struct vec2d){.x=100,  .y=100}));
     cvector_push_back(road.points, ((struct vec2d){.x=200,  .y=50}));
     cvector_push_back(road.points, ((struct vec2d){.x=250,  .y=10}));
 
@@ -262,7 +262,13 @@ int main( int argc, char **argv ) {
         .vertices = road.points
     });
 
-
+    g_add_test(man,&(struct g_test){
+        .p1 = {-100,100},
+        .p2 = {100,-100},
+        .color = {1,0,1,1.0},
+        .line_type = g_ltDOTDASH,
+        .width = 10.0f
+    });
 
     /*
     cvector(struct vec2d) new_points = NULL;
@@ -291,8 +297,8 @@ int main( int argc, char **argv ) {
     // END NUKLEAR
 
     // THREAD
-    pthread_t thread_id;
-    pthread_create(&thread_id, NULL, simulation_thread, NULL);
+    //pthread_t thread_id;
+    //pthread_create(&thread_id, NULL, simulation_thread, NULL);
     // END THREAD
 
     // END INIT

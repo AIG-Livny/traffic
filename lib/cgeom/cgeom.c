@@ -1,8 +1,6 @@
 #include "cgeom.h"
 #include "iso646.h"
 
-typedef void (*errorcb_t)(int);
-
 int error_code = 0;
 static errorcb_t error_callback = NULL;
 
@@ -13,6 +11,9 @@ void throw(int code){
     }
 }
 
+void m_set_error_callback(errorcb_t cb){
+    error_callback = cb;
+}
 
 #if defined(CGEOM_PRECISE_TRIGONOMETRY)
 /* The following code (sincos1cos and float and double versions of
@@ -155,8 +156,8 @@ M_GEN_IMPL_sncs1cs(f);
 M_GEN_IMPL_sncs1cs(d);
 #endif
 
-#define ELEM_TYPE(name) typeof((name)->v[0])
-#define ELEM_NUM(name) sizeof((name)->v)/sizeof(ELEM_TYPE(name))
+#define ELEM_TYPE(arr) typeof((arr)[0])
+#define ELEM_NUM(arr) sizeof((arr))/sizeof(ELEM_TYPE(arr))
 
 
 #ifdef M_GEN_vec3i_rotate
@@ -254,7 +255,12 @@ M_GEN_IMPL_to_degrees(d);
 #ifdef M_GEN_is_zero
 #define M_GEN_IMPL_is_zero(_s,_char) \
 M_GEN_is_zero(_s,_char){ \
-    return memvcmp((void*)v0,0,sizeof(struct _s##_char)) == 0; \
+    for ( int i = 0; i < ELEM_NUM(v0.v); i++ ) { \
+        if ( v0.v[i] != 0 ) { \
+            return false; \
+        } \
+    } \
+    return true; \
 }
 
 M_GEN_IMPL_is_zero(vec2,i);
@@ -263,8 +269,8 @@ M_GEN_IMPL_is_zero(vec4,i);
 
 #define M_GEN_IMPL2_is_zero(_s,_char) \
 M_GEN_is_zero(_s,_char) { \
-    for ( int i = 0; i < sizeof(v0->v)/sizeof(typeof(v0->v[0])); i++ ) { \
-        if ( M##_char##FABS(v0->v[i]) >= M##_char##EPSILON ) { \
+    for ( int i = 0; i < ELEM_NUM(v0.v); i++ ) { \
+        if ( M##_char##FABS(v0.v[i]) >= M##_char##EPSILON ) { \
             return false; \
         } \
     } \
@@ -293,7 +299,7 @@ M_GEN_IMPL_is_equal(vec4,i);
 
 #define M_GEN_IMPL2_is_equal(_s,_char)                                      \
 M_GEN_is_equal(_s,_char) {                                                  \
-    for ( int i = 0; i < ELEM_NUM(v0); i++ ) {                              \
+    for ( int i = 0; i < ELEM_NUM(v0->v); i++ ) {                              \
         if ( M##_char##FABS(v0->v[i] - v1->v[i]) >= M##_char##EPSILON ) {   \
             return false;                                                   \
         }                                                                   \
@@ -314,7 +320,7 @@ M_GEN_IMPL2_is_equal(quat,d);
 #ifdef M_GEN_one
 #define M_GEN_IMPL_one(_s,_char) \
 M_GEN_one(_s,_char) { \
-    for ( int i = 0; i < ELEM_NUM(result); i++ ) { \
+    for ( int i = 0; i < ELEM_NUM(result->v); i++ ) { \
         result->v[i] = 1; \
     } \
     return result; \
@@ -334,7 +340,7 @@ M_GEN_IMPL_one(vec4,d);
 #ifdef M_GEN_sign
 #define M_GEN_IMPL_sign(_s,_char) \
 M_GEN_sign(_s,_char) { \
-    for ( int i = 0; i < ELEM_NUM(result); i++ ){ \
+    for ( int i = 0; i < ELEM_NUM(result->v); i++ ){ \
         if (v0->v[i] >  (m##_char##_t)(0.0)) { \
             result->v[i] = (m##_char##_t)(1.0); \
         } else if (v0->v[i] < 0) { \
@@ -360,10 +366,10 @@ M_GEN_IMPL_sign(vec4,d);
 #ifdef M_GEN_add
 #define M_GEN_IMPL_add(_s,_char) \
 M_GEN_add(_s,_char){ \
-    for ( int i=0; i < ELEM_NUM(result); i++ ){ \
-        result->v[i] += v0->v[i]; \
+    for ( int i=0; i < ELEM_NUM(v0.v); i++ ){ \
+        v0.v[i] += v1.v[i]; \
     } \
-    return result; \
+    return v0; \
 }
 
 M_GEN_IMPL_add(vec2,i);
@@ -380,7 +386,7 @@ M_GEN_IMPL_add(vec4,d);
 #ifdef M_GEN_add_num
 #define M_GEN_IMPL_add_num(_s,_char) \
 M_GEN_add_num(_s,_char){ \
-    for ( int i=0; i < ELEM_NUM(result); i++ ){ \
+    for ( int i=0; i < ELEM_NUM(result->v); i++ ){ \
         result->v[i] = v0->v[i] + (m##_char##_t)num; \
     } \
     return result; \
@@ -400,10 +406,10 @@ M_GEN_IMPL_add_num(vec4,d);
 #ifdef M_GEN_subtract
 #define M_GEN_IMPL_subtract(_s,_char) \
 M_GEN_subtract(_s,_char){ \
-    for ( int i=0; i < ELEM_NUM(result); i++ ){ \
-        result->v[i] -= v0->v[i]; \
+    for ( int i=0; i < ELEM_NUM(v0.v); i++ ){ \
+        v0.v[i] -= v1.v[i]; \
     } \
-    return result; \
+    return v0; \
 }
 
 M_GEN_IMPL_subtract(vec2,i);
@@ -420,7 +426,7 @@ M_GEN_IMPL_subtract(vec4,d);
 #ifdef M_GEN_subtract_num
 #define M_GEN_IMPL_subtract_num(_s,_char) \
 M_GEN_subtract_num(_s,_char){ \
-    for ( int i=0; i < ELEM_NUM(result); i++ ){ \
+    for ( int i=0; i < ELEM_NUM(result->v); i++ ){ \
         result->v[i] = v0->v[i] - (m##_char##_t)num; \
     } \
     return result; \
@@ -440,10 +446,10 @@ M_GEN_IMPL_subtract_num(vec4,d);
 #ifdef M_GEN_multiply
 #define M_GEN_IMPL_vec_multiply(_s,_char) \
 M_GEN_multiply(_s,_char){ \
-    for ( int i=0; i < ELEM_NUM(result); i++ ){ \
-        result->v[i] = a0->v[i] * a1->v[i]; \
+    for ( int i=0; i < ELEM_NUM(a0.v); i++ ){ \
+        a0.v[i] *= a1.v[i]; \
     } \
-    return result; \
+    return a0; \
 }
 
 M_GEN_IMPL_vec_multiply(vec2,i);
@@ -458,15 +464,11 @@ M_GEN_IMPL_vec_multiply(vec4,d);
 
 #define M_GEN_IMPL_mat2_multiply(_s,_char) \
 M_GEN_multiply(_s,_char){ \
-    struct _s##_char multiplied; \
-    multiplied.v[0] = a0->v[0] * a1->v[0] + a0->v[2] * a1->v[1]; \
-    multiplied.v[1] = a0->v[1] * a1->v[0] + a0->v[3] * a1->v[1]; \
-    multiplied.v[2] = a0->v[0] * a1->v[2] + a0->v[2] * a1->v[3]; \
-    multiplied.v[3] = a0->v[1] * a1->v[2] + a0->v[3] * a1->v[3]; \
-    result->v[0] = multiplied.v[0]; \
-    result->v[1] = multiplied.v[1]; \
-    result->v[2] = multiplied.v[2]; \
-    result->v[3] = multiplied.v[3]; \
+    struct _s##_char result; \
+    result.v[0] = a0.v[0] * a1.v[0] + a0.v[2] * a1.v[1]; \
+    result.v[1] = a0.v[1] * a1.v[0] + a0.v[3] * a1.v[1]; \
+    result.v[2] = a0.v[0] * a1.v[2] + a0.v[2] * a1.v[3]; \
+    result.v[3] = a0.v[1] * a1.v[2] + a0.v[3] * a1.v[3]; \
     return result; \
 }
 
@@ -475,25 +477,16 @@ M_GEN_IMPL_mat2_multiply(mat2,d);
 
 #define M_GEN_IMPL_mat3_multiply(_s,_char) \
 M_GEN_multiply(_s,_char){ \
-    struct _s##_char multiplied; \
-    multiplied.v[0] = a0->v[0] * a1->v[0] + a0->v[3] * a1->v[1] + a0->v[6] * a1->v[2]; \
-    multiplied.v[1] = a0->v[1] * a1->v[0] + a0->v[4] * a1->v[1] + a0->v[7] * a1->v[2]; \
-    multiplied.v[2] = a0->v[2] * a1->v[0] + a0->v[5] * a1->v[1] + a0->v[8] * a1->v[2]; \
-    multiplied.v[3] = a0->v[0] * a1->v[3] + a0->v[3] * a1->v[4] + a0->v[6] * a1->v[5]; \
-    multiplied.v[4] = a0->v[1] * a1->v[3] + a0->v[4] * a1->v[4] + a0->v[7] * a1->v[5]; \
-    multiplied.v[5] = a0->v[2] * a1->v[3] + a0->v[5] * a1->v[4] + a0->v[8] * a1->v[5]; \
-    multiplied.v[6] = a0->v[0] * a1->v[6] + a0->v[3] * a1->v[7] + a0->v[6] * a1->v[8]; \
-    multiplied.v[7] = a0->v[1] * a1->v[6] + a0->v[4] * a1->v[7] + a0->v[7] * a1->v[8]; \
-    multiplied.v[8] = a0->v[2] * a1->v[6] + a0->v[5] * a1->v[7] + a0->v[8] * a1->v[8]; \
-    result->v[0] = multiplied.v[0]; \
-    result->v[1] = multiplied.v[1]; \
-    result->v[2] = multiplied.v[2]; \
-    result->v[3] = multiplied.v[3]; \
-    result->v[4] = multiplied.v[4]; \
-    result->v[5] = multiplied.v[5]; \
-    result->v[6] = multiplied.v[6]; \
-    result->v[7] = multiplied.v[7]; \
-    result->v[8] = multiplied.v[8]; \
+    struct _s##_char result; \
+    result.v[0] = a0.v[0] * a1.v[0] + a0.v[3] * a1.v[1] + a0.v[6] * a1.v[2]; \
+    result.v[1] = a0.v[1] * a1.v[0] + a0.v[4] * a1.v[1] + a0.v[7] * a1.v[2]; \
+    result.v[2] = a0.v[2] * a1.v[0] + a0.v[5] * a1.v[1] + a0.v[8] * a1.v[2]; \
+    result.v[3] = a0.v[0] * a1.v[3] + a0.v[3] * a1.v[4] + a0.v[6] * a1.v[5]; \
+    result.v[4] = a0.v[1] * a1.v[3] + a0.v[4] * a1.v[4] + a0.v[7] * a1.v[5]; \
+    result.v[5] = a0.v[2] * a1.v[3] + a0.v[5] * a1.v[4] + a0.v[8] * a1.v[5]; \
+    result.v[6] = a0.v[0] * a1.v[6] + a0.v[3] * a1.v[7] + a0.v[6] * a1.v[8]; \
+    result.v[7] = a0.v[1] * a1.v[6] + a0.v[4] * a1.v[7] + a0.v[7] * a1.v[8]; \
+    result.v[8] = a0.v[2] * a1.v[6] + a0.v[5] * a1.v[7] + a0.v[8] * a1.v[8]; \
     return result; \
 }
 
@@ -502,39 +495,23 @@ M_GEN_IMPL_mat3_multiply(mat3,d);
 
 #define M_GEN_IMPL_mat4_multiply(_s,_char) \
 M_GEN_multiply(_s,_char){ \
-    struct _s##_char multiplied; \
-    multiplied.v[0]  = a0->v[0] * a1->v[0]  + a0->v[4] * a1->v[1]  + a0->v[8]  * a1->v[2]  + a0->v[12] * a1->v[3]; \
-    multiplied.v[1]  = a0->v[1] * a1->v[0]  + a0->v[5] * a1->v[1]  + a0->v[9]  * a1->v[2]  + a0->v[13] * a1->v[3]; \
-    multiplied.v[2]  = a0->v[2] * a1->v[0]  + a0->v[6] * a1->v[1]  + a0->v[10] * a1->v[2]  + a0->v[14] * a1->v[3]; \
-    multiplied.v[3]  = a0->v[3] * a1->v[0]  + a0->v[7] * a1->v[1]  + a0->v[11] * a1->v[2]  + a0->v[15] * a1->v[3]; \
-    multiplied.v[4]  = a0->v[0] * a1->v[4]  + a0->v[4] * a1->v[5]  + a0->v[8]  * a1->v[6]  + a0->v[12] * a1->v[7]; \
-    multiplied.v[5]  = a0->v[1] * a1->v[4]  + a0->v[5] * a1->v[5]  + a0->v[9]  * a1->v[6]  + a0->v[13] * a1->v[7]; \
-    multiplied.v[6]  = a0->v[2] * a1->v[4]  + a0->v[6] * a1->v[5]  + a0->v[10] * a1->v[6]  + a0->v[14] * a1->v[7]; \
-    multiplied.v[7]  = a0->v[3] * a1->v[4]  + a0->v[7] * a1->v[5]  + a0->v[11] * a1->v[6]  + a0->v[15] * a1->v[7]; \
-    multiplied.v[8]  = a0->v[0] * a1->v[8]  + a0->v[4] * a1->v[9]  + a0->v[8]  * a1->v[10] + a0->v[12] * a1->v[11]; \
-    multiplied.v[9]  = a0->v[1] * a1->v[8]  + a0->v[5] * a1->v[9]  + a0->v[9]  * a1->v[10] + a0->v[13] * a1->v[11]; \
-    multiplied.v[10] = a0->v[2] * a1->v[8]  + a0->v[6] * a1->v[9]  + a0->v[10] * a1->v[10] + a0->v[14] * a1->v[11]; \
-    multiplied.v[11] = a0->v[3] * a1->v[8]  + a0->v[7] * a1->v[9]  + a0->v[11] * a1->v[10] + a0->v[15] * a1->v[11]; \
-    multiplied.v[12] = a0->v[0] * a1->v[12] + a0->v[4] * a1->v[13] + a0->v[8]  * a1->v[14] + a0->v[12] * a1->v[15]; \
-    multiplied.v[13] = a0->v[1] * a1->v[12] + a0->v[5] * a1->v[13] + a0->v[9]  * a1->v[14] + a0->v[13] * a1->v[15]; \
-    multiplied.v[14] = a0->v[2] * a1->v[12] + a0->v[6] * a1->v[13] + a0->v[10] * a1->v[14] + a0->v[14] * a1->v[15]; \
-    multiplied.v[15] = a0->v[3] * a1->v[12] + a0->v[7] * a1->v[13] + a0->v[11] * a1->v[14] + a0->v[15] * a1->v[15]; \
-    result->v[0]  = multiplied.v[0]; \
-    result->v[1]  = multiplied.v[1]; \
-    result->v[2]  = multiplied.v[2]; \
-    result->v[3]  = multiplied.v[3]; \
-    result->v[4]  = multiplied.v[4]; \
-    result->v[5]  = multiplied.v[5]; \
-    result->v[6]  = multiplied.v[6]; \
-    result->v[7]  = multiplied.v[7]; \
-    result->v[8]  = multiplied.v[8]; \
-    result->v[9]  = multiplied.v[9]; \
-    result->v[10] = multiplied.v[10]; \
-    result->v[11] = multiplied.v[11]; \
-    result->v[12] = multiplied.v[12]; \
-    result->v[13] = multiplied.v[13]; \
-    result->v[14] = multiplied.v[14]; \
-    result->v[15] = multiplied.v[15]; \
+    struct _s##_char result; \
+    result.v[0]  = a0.v[0] * a1.v[0]  + a0.v[4] * a1.v[1]  + a0.v[8]  * a1.v[2]  + a0.v[12] * a1.v[3]; \
+    result.v[1]  = a0.v[1] * a1.v[0]  + a0.v[5] * a1.v[1]  + a0.v[9]  * a1.v[2]  + a0.v[13] * a1.v[3]; \
+    result.v[2]  = a0.v[2] * a1.v[0]  + a0.v[6] * a1.v[1]  + a0.v[10] * a1.v[2]  + a0.v[14] * a1.v[3]; \
+    result.v[3]  = a0.v[3] * a1.v[0]  + a0.v[7] * a1.v[1]  + a0.v[11] * a1.v[2]  + a0.v[15] * a1.v[3]; \
+    result.v[4]  = a0.v[0] * a1.v[4]  + a0.v[4] * a1.v[5]  + a0.v[8]  * a1.v[6]  + a0.v[12] * a1.v[7]; \
+    result.v[5]  = a0.v[1] * a1.v[4]  + a0.v[5] * a1.v[5]  + a0.v[9]  * a1.v[6]  + a0.v[13] * a1.v[7]; \
+    result.v[6]  = a0.v[2] * a1.v[4]  + a0.v[6] * a1.v[5]  + a0.v[10] * a1.v[6]  + a0.v[14] * a1.v[7]; \
+    result.v[7]  = a0.v[3] * a1.v[4]  + a0.v[7] * a1.v[5]  + a0.v[11] * a1.v[6]  + a0.v[15] * a1.v[7]; \
+    result.v[8]  = a0.v[0] * a1.v[8]  + a0.v[4] * a1.v[9]  + a0.v[8]  * a1.v[10] + a0.v[12] * a1.v[11]; \
+    result.v[9]  = a0.v[1] * a1.v[8]  + a0.v[5] * a1.v[9]  + a0.v[9]  * a1.v[10] + a0.v[13] * a1.v[11]; \
+    result.v[10] = a0.v[2] * a1.v[8]  + a0.v[6] * a1.v[9]  + a0.v[10] * a1.v[10] + a0.v[14] * a1.v[11]; \
+    result.v[11] = a0.v[3] * a1.v[8]  + a0.v[7] * a1.v[9]  + a0.v[11] * a1.v[10] + a0.v[15] * a1.v[11]; \
+    result.v[12] = a0.v[0] * a1.v[12] + a0.v[4] * a1.v[13] + a0.v[8]  * a1.v[14] + a0.v[12] * a1.v[15]; \
+    result.v[13] = a0.v[1] * a1.v[12] + a0.v[5] * a1.v[13] + a0.v[9]  * a1.v[14] + a0.v[13] * a1.v[15]; \
+    result.v[14] = a0.v[2] * a1.v[12] + a0.v[6] * a1.v[13] + a0.v[10] * a1.v[14] + a0.v[14] * a1.v[15]; \
+    result.v[15] = a0.v[3] * a1.v[12] + a0.v[7] * a1.v[13] + a0.v[11] * a1.v[14] + a0.v[15] * a1.v[15]; \
     return result; \
 }
 
@@ -543,10 +520,11 @@ M_GEN_IMPL_mat4_multiply(mat4,d);
 
 #define M_GEN_IMPL_quat_multiply(_s,_char) \
 M_GEN_multiply(_s,_char){ \
-    result->v[0] = a0->v[3] * a1->v[0] + a0->v[0] * a1->v[3] + a0->v[1] * a1->v[2] - a0->v[2] * a1->v[1]; \
-    result->v[1] = a0->v[3] * a1->v[1] + a0->v[1] * a1->v[3] + a0->v[2] * a1->v[0] - a0->v[0] * a1->v[2]; \
-    result->v[2] = a0->v[3] * a1->v[2] + a0->v[2] * a1->v[3] + a0->v[0] * a1->v[1] - a0->v[1] * a1->v[0]; \
-    result->v[3] = a0->v[3] * a1->v[3] - a0->v[0] * a1->v[0] - a0->v[1] * a1->v[1] - a0->v[2] * a1->v[2]; \
+    struct _s##_char result; \
+    result.v[0] = a0.v[3] * a1.v[0] + a0.v[0] * a1.v[3] + a0.v[1] * a1.v[2] - a0.v[2] * a1.v[1]; \
+    result.v[1] = a0.v[3] * a1.v[1] + a0.v[1] * a1.v[3] + a0.v[2] * a1.v[0] - a0.v[0] * a1.v[2]; \
+    result.v[2] = a0.v[3] * a1.v[2] + a0.v[2] * a1.v[3] + a0.v[0] * a1.v[1] - a0.v[1] * a1.v[0]; \
+    result.v[3] = a0.v[3] * a1.v[3] - a0.v[0] * a1.v[0] - a0.v[1] * a1.v[1] - a0.v[2] * a1.v[2]; \
     return result; \
 }
 
@@ -557,10 +535,10 @@ M_GEN_IMPL_quat_multiply(quat,d);
 #ifdef M_GEN_multiply_num
 #define M_GEN_IMPL_multiply_num(_s,_char) \
 M_GEN_multiply_num(_s,_char){ \
-    for ( int i=0; i < ELEM_NUM(result); i++ ){ \
-        result->v[i] *= (m##_char##_t)num; \
+    for ( int i=0; i < ELEM_NUM(v0.v); i++ ){ \
+        v0.v[i] *= (m##_char##_t)num; \
     } \
-    return result; \
+    return v0; \
 }
 
 M_GEN_IMPL_multiply_num(vec2,i);
@@ -585,7 +563,7 @@ M_GEN_IMPL_multiply_num(quat,d);
 #ifdef M_GEN_divide
 #define M_GEN_IMPL_divide(_s,_char) \
 M_GEN_divide(_s,_char){ \
-    for ( int i=0; i < ELEM_NUM(result); i++ ){ \
+    for ( int i=0; i < ELEM_NUM(result->v); i++ ){ \
         result->v[i] = v0->v[i] / v1->v[i]; \
     } \
     return result; \
@@ -605,10 +583,10 @@ M_GEN_IMPL_divide(vec4,d);
 #ifdef M_GEN_divide_num
 #define M_GEN_IMPL_divide_num(_s,_char) \
 M_GEN_divide_num(_s,_char){ \
-    for ( int i=0; i < ELEM_NUM(result); i++ ){ \
-        result->v[i] /= (m##_char##_t)num; \
+    for ( int i=0; i < ELEM_NUM(v0.v); i++ ){ \
+        v0.v[i] /= (m##_char##_t)num; \
     } \
-    return result; \
+    return v0; \
 }
 
 M_GEN_IMPL_divide_num(vec2,i);
@@ -625,12 +603,12 @@ M_GEN_IMPL_divide_num(quat,d);
 #endif
 
 #ifdef M_GEN_snap
-#define M_GEN_IMPL_snap(_s,_char)                                           \
-M_GEN_snap(_s,_char) {                                                      \
-    for ( int i=0; i < ELEM_NUM(result); i++ ){                             \
-        result->v[i] = M##_char##FLOOR(v0->v[i] / v1->v[i]) * v1->v[i];     \
-    }                                                                       \
-    return result;                                                          \
+#define M_GEN_IMPL_snap(_s,_char) \
+M_GEN_snap(_s,_char) { \
+    for ( int i=0; i < ELEM_NUM(result->v); i++ ){ \
+        result->v[i] = M##_char##FLOOR(v0->v[i] / v1->v[i]) * v1->v[i]; \
+    } \
+    return result; \
 }
 
 M_GEN_IMPL_snap(vec2,f);
@@ -642,12 +620,12 @@ M_GEN_IMPL_snap(vec4,d);
 #endif
 
 #ifdef M_GEN_snap_num
-#define M_GEN_IMPL_snap_num(_s,_char)                                                       \
-M_GEN_snap_num(_s,_char) {                                                                  \
-    for ( int i=0; i < ELEM_NUM(result); i++ ){                                             \
-        result->v[i] = M##_char##FLOOR(v0->v[i] / (m##_char##_t)num) * (m##_char##_t)num;   \
-    }                                                                                       \
-    return result;                                                                          \
+#define M_GEN_IMPL_snap_num(_s,_char) \
+M_GEN_snap_num(_s,_char) { \
+    for ( int i=0; i < ELEM_NUM(result->v); i++ ){ \
+        result->v[i] = M##_char##FLOOR(v0->v[i] / (m##_char##_t)num) * (m##_char##_t)num; \
+    } \
+    return result; \
 }
 
 M_GEN_IMPL_snap_num(vec2,f);
@@ -661,10 +639,10 @@ M_GEN_IMPL_snap_num(vec4,d);
 #ifdef M_GEN_negative
 #define M_GEN_IMPL_negative(_s,_char) \
 M_GEN_negative(_s,_char) { \
-    for ( int i=0; i < ELEM_NUM(result); i++ ){ \
-        result->v[i] = -v0->v[i]; \
+    for ( int i=0; i < ELEM_NUM(v0.v); i++ ){ \
+        v0.v[i] = -v0.v[i]; \
     } \
-    return result; \
+    return v0; \
 }
 
 M_GEN_IMPL_negative(vec2,f);
@@ -689,7 +667,7 @@ M_GEN_IMPL_negative(mat4,d);
 #ifdef M_GEN_abs
 #define M_GEN_IMPL_abs(_s,_char) \
 M_GEN_abs(_s,_char) { \
-    for ( int i=0; i < ELEM_NUM(result); i++ ){ \
+    for ( int i=0; i < ELEM_NUM(result->v); i++ ){ \
         result->v[i] = v0->v[i]; \
         if (result->v[i] < 0) { \
             result->v[i] = -result->v[i]; \
@@ -702,12 +680,12 @@ M_GEN_IMPL_abs(vec2,i);
 M_GEN_IMPL_abs(vec3,i);
 M_GEN_IMPL_abs(vec4,i);
 
-#define M_GEN_IMPL2_abs(_s,_char)                   \
-M_GEN_abs(_s,_char) {                               \
-    for ( int i=0; i < ELEM_NUM(result); i++ ){     \
-        result->v[i] = M##_char##FABS(v0->v[i]);    \
-    }                                               \
-    return result;                                  \
+#define M_GEN_IMPL2_abs(_s,_char) \
+M_GEN_abs(_s,_char) { \
+    for ( int i=0; i < ELEM_NUM(result->v); i++ ){ \
+        result->v[i] = M##_char##FABS(v0->v[i]); \
+    } \
+    return result; \
 }
 
 M_GEN_IMPL2_abs(vec2,f);
@@ -721,7 +699,7 @@ M_GEN_IMPL2_abs(vec4,d);
 #ifdef M_GEN_max
 #define M_GEN_IMPL_max(_s,_char) \
 M_GEN_max(_s,_char) { \
-    for ( int i=0; i < ELEM_NUM(result); i++ ){ \
+    for ( int i=0; i < ELEM_NUM(result->v); i++ ){ \
         if (v0->v[i] > v1->v[i]) { \
             result->v[i] = v0->v[i]; \
         } else { \
@@ -737,7 +715,7 @@ M_GEN_IMPL_max(vec4,i);
 
 #define M_GEN_IMPL2_max(_s,_char) \
 M_GEN_max(_s,_char) { \
-    for ( int i=0; i < ELEM_NUM(result); i++ ){ \
+    for ( int i=0; i < ELEM_NUM(result->v); i++ ){ \
         result->v[i] = M##_char##FMAX(v0->v[i], v1->v[i]); \
     } \
     return result; \
@@ -754,7 +732,7 @@ M_GEN_IMPL2_max(vec4,d);
 #ifdef M_GEN_min
 #define M_GEN_IMPL_min(_s,_char) \
 M_GEN_min(_s,_char) { \
-    for ( int i=0; i < ELEM_NUM(result); i++ ){ \
+    for ( int i=0; i < ELEM_NUM(result->v); i++ ){ \
         if (v0->v[i] < v1->v[i]) { \
             result->v[i] = v0->v[i]; \
         } else { \
@@ -770,7 +748,7 @@ M_GEN_IMPL_min(vec4,i);
 
 #define M_GEN_IMPL2_min(_s,_char) \
 M_GEN_min(_s,_char) { \
-    for ( int i=0; i < ELEM_NUM(result); i++ ){ \
+    for ( int i=0; i < ELEM_NUM(result->v); i++ ){ \
         result->v[i] = M##_char##FMIN(v0->v[i], v1->v[i]); \
     } \
     return result; \
@@ -806,11 +784,11 @@ M_GEN_IMPL_vec_clamp(vec4,i);
 #ifdef M_GEN_tangent
 #define M_GEN_IMPL_tangent(_s,_char) \
 M_GEN_tangent(_s,_char) { \
-    m##_char##_t a0 = result->v[0]; \
-    m##_char##_t a1 = result->v[1]; \
-    result->v[0] = a1; \
-    result->v[1] = -a0; \
-    return result; \
+    m##_char##_t a0 = v0.v[0]; \
+    m##_char##_t a1 = v0.v[1]; \
+    v0.v[0] = a1; \
+    v0.v[1] = -a0; \
+    return v0; \
 }
 
 M_GEN_IMPL_tangent(vec2,i);
@@ -821,11 +799,11 @@ M_GEN_IMPL_tangent(vec2,d);
 #ifdef M_GEN_cotangent
 #define M_GEN_IMPL_cotangent(_s,_char) \
 M_GEN_cotangent(_s,_char) { \
-    m##_char##_t a0 = result->v[0]; \
-    m##_char##_t a1 = result->v[1]; \
-    result->v[0] = -a1; \
-    result->v[1] = a0; \
-    return result; \
+    m##_char##_t a0 = v0.v[0]; \
+    m##_char##_t a1 = v0.v[1]; \
+    v0.v[0] = -a1; \
+    v0.v[1] = a0; \
+    return v0; \
 }
 
 M_GEN_IMPL_cotangent(vec2,i);
@@ -834,14 +812,13 @@ M_GEN_IMPL_cotangent(vec2,d);
 #endif
 
 #ifdef M_GEN_cross
-#define M_GEN_IMPL_cross(_s,_char)                          \
-M_GEN_cross(_s,_char){                                      \
-    m##_char##_t cross[VEC3_SIZE];                          \
-    cross[0] = v0->v[1] * v1->v[2] - v0->v[2] * v1->v[1];   \
-    cross[1] = v0->v[2] * v1->v[0] - v0->v[0] * v1->v[2];   \
-    cross[2] = v0->v[0] * v1->v[1] - v0->v[1] * v1->v[0];   \
-    memcpy(result,cross,sizeof(m##_char##_t)*VEC3_SIZE);    \
-    return result;                                          \
+#define M_GEN_IMPL_cross(_s,_char) \
+M_GEN_cross(_s,_char){ \
+    struct _s##_char result; \
+    result.v[0] = v0.v[1] * v1.v[2] - v0.v[2] * v1.v[1]; \
+    result.v[1] = v0.v[2] * v1.v[0] - v0.v[0] * v1.v[2]; \
+    result.v[2] = v0.v[0] * v1.v[1] - v0.v[1] * v1.v[0]; \
+    return result; \
 }
 
 M_GEN_IMPL_cross(vec3,i);
@@ -866,7 +843,7 @@ M_GEN_multiply_mat2(vec2,d);
 #ifdef M_GEN_floor
 #define M_GEN_IMPL_floor(_s,_char) \
 M_GEN_floor(_s,_char){ \
-    for ( int i=0; i < ELEM_NUM(result); i++ ){ \
+    for ( int i=0; i < ELEM_NUM(result->v); i++ ){ \
         result->v[i] = M##_char##FLOOR(v0->v[i]); \
  \
     } \
@@ -884,7 +861,7 @@ M_GEN_IMPL_floor(vec4,d);
 #ifdef M_GEN_ceil
 #define M_GEN_IMPL_ceil(_s,_char) \
 M_GEN_ceil(_s,_char){ \
-    for ( int i=0; i < ELEM_NUM(result); i++ ){ \
+    for ( int i=0; i < ELEM_NUM(result->v); i++ ){ \
         result->v[i] = M##_char##CEIL(v0->v[i]); \
  \
     } \
@@ -902,7 +879,7 @@ M_GEN_IMPL_ceil(vec4,d);
 #ifdef M_GEN_round
 #define M_GEN_IMPL_round(_s,_char) \
 M_GEN_round(_s,_char){ \
-    for ( int i=0; i < ELEM_NUM(result); i++ ){ \
+    for ( int i=0; i < ELEM_NUM(result->v); i++ ){ \
         result->v[i] = M##_char##ROUND(v0->v[i]); \
     } \
     return result; \
@@ -920,8 +897,8 @@ M_GEN_IMPL_round(vec4,d);
 #define M_GEN_IMPL_length_squared(_s,_char) \
 M_GEN_length_squared(_s,_char){ \
     m##_char##_t sum = 0; \
-    for ( int i=0; i < ELEM_NUM(v0); i++ ){ \
-        sum += v0->v[i] * v0->v[i]; \
+    for ( int i=0; i < ELEM_NUM(v0.v); i++ ){ \
+        sum += v0.v[i] * v0.v[i]; \
     } \
     return sum; \
 }
@@ -955,11 +932,11 @@ M_GEN_IMPL_length(quat,d);
 #ifdef M_GEN_normalize
 #define M_GEN_IMPL_normalize(_s,_char) \
 M_GEN_normalize(_s,_char){ \
-    m##_char##_t l = _s##_char##_length(result); \
-    for ( int i=0; i < ELEM_NUM(result); i++ ){ \
-        result->v[i] /= l; \
+    m##_char##_t l = _s##_char##_length(v0); \
+    for ( int i=0; i < ELEM_NUM(v0.v); i++ ){ \
+        v0.v[i] /= l; \
     } \
-    return result; \
+    return v0; \
 }
 
 M_GEN_IMPL_normalize(vec2,f);
@@ -974,8 +951,8 @@ M_GEN_IMPL_normalize(vec4,d);
 #define M_GEN_IMPL_dot(_s,_char) \
 M_GEN_dot(_s,_char) { \
     m##_char##_t sum = 0; \
-    for ( int i=0; i < ELEM_NUM(v0); i++ ){ \
-        sum += v0->v[i] * v1->v[i]; \
+    for ( int i=0; i < ELEM_NUM(v0.v); i++ ){ \
+        sum += v0.v[i] * v1.v[i]; \
     } \
     return sum; \
 }
@@ -998,10 +975,10 @@ M_GEN_IMPL_dot(quat,d);
 M_GEN_project(_s,_char) { \
     m##_char##_t d = _s##_char##_dot(v1, v1); \
     m##_char##_t s = _s##_char##_dot(v0, v1) / d; \
-    for ( int i=0; i < ELEM_NUM(v0); i++ ){ \
-        result->v[i] = v1->v[i] * s; \
+    for ( int i=0; i < ELEM_NUM(v0.v); i++ ){ \
+        v0.v[i] = v1.v[i] * s; \
     } \
-    return result; \
+    return v0; \
 }
 
 M_GEN_IMPL_project(vec2,f);
@@ -1016,10 +993,10 @@ M_GEN_IMPL_project(vec4,d);
 #define M_GEN_IMPL_slide(_s,_char) \
 M_GEN_slide(_s,_char) { \
     m##_char##_t d = _s##_char##_dot(v0, normal); \
-    for ( int i=0; i < ELEM_NUM(v0); i++ ){ \
-        result->v[i] = v0->v[i] - normal->v[i] * d; \
+    for ( int i=0; i < ELEM_NUM(v0.v); i++ ){ \
+        v0.v[i] -= normal.v[i] * d; \
     } \
-    return result; \
+    return v0; \
 }
 
 M_GEN_IMPL_slide(vec2,f);
@@ -1031,13 +1008,13 @@ M_GEN_IMPL_slide(vec4,d);
 #endif
 
 #ifdef M_GEN_reflect
-#define M_GEN_IMPL_reflect(_s,_char)                                    \
-M_GEN_reflect(_s,_char) {                                               \
-    m##_char##_t d = (m##_char##_t)2.0 * _s##_char##_dot(v0, normal);   \
-    for ( int i=0; i < ELEM_NUM(v0); i++ ){                             \
-        result->v[i] = normal->v[i] * d - v0->v[i];                     \
-    }                                                                   \
-    return result;                                                      \
+#define M_GEN_IMPL_reflect(_s,_char) \
+M_GEN_reflect(_s,_char) { \
+    m##_char##_t d = (m##_char##_t)2.0 * _s##_char##_dot(v0, normal); \
+    for ( int i=0; i < ELEM_NUM(v0.v); i++ ){ \
+        v0.v[i] = normal.v[i] * d - v0.v[i]; \
+    } \
+    return v0; \
 }
 
 M_GEN_IMPL_reflect(vec2,f);
@@ -1049,15 +1026,15 @@ M_GEN_IMPL_reflect(vec4,d);
 #endif
 
 #ifdef M_GEN_vec2_rotate
-#define M_GEN_IMPL_vec2_rotate(_char)   \
-M_GEN_vec2_rotate(_char){               \
+#define M_GEN_IMPL_vec2_rotate(_char) \
+M_GEN_vec2_rotate(_char){ \
     m##_char##_t cs = M##_char##COS(f); \
     m##_char##_t sn = M##_char##SIN(f); \
-    m##_char##_t x = v0->v[0];          \
-    m##_char##_t y = v0->v[1];          \
-    result->v[0] = x * cs - y * sn;     \
-    result->v[1] = x * sn + y * cs;     \
-    return result;                      \
+    m##_char##_t x = v0.v[0]; \
+    m##_char##_t y = v0.v[1]; \
+    v0.v[0] = x * cs - y * sn; \
+    v0.v[1] = x * sn + y * cs; \
+    return v0; \
 }
 
 M_GEN_IMPL_vec2_rotate(f);
@@ -1077,18 +1054,17 @@ M_GEN_vec3_rotate(_char){ \
     m##_char##_t rz; \
     cs = M##_char##COS(f); \
     sn = M##_char##SIN(f); \
-    x = v0->v[0]; \
-    y = v0->v[1]; \
-    z = v0->v[2]; \
-    struct vec3##_char norm = *ra; \
-    vec3##_char##_normalize(&norm); \
+    x = v0.v[0]; \
+    y = v0.v[1]; \
+    z = v0.v[2]; \
+    struct vec3##_char norm = vec3##_char##_normalize(ra); \
     rx = norm.x; \
     ry = norm.y; \
     rz = norm.z; \
-    result->v[0] = x * (cs + rx * rx * (1 - cs)) + y * (rx * ry * (1 - cs) - rz * sn) + z * (rx * rz * (1 - cs) + ry * sn); \
-    result->v[1] = x * (ry * rx * (1 - cs) + rz * sn) + y * (cs + ry * ry * (1 - cs)) + z * (ry * rz * (1 - cs) - rx * sn); \
-    result->v[2] = x * (rz * rx * (1 - cs) - ry * sn) + y * (rz * ry * (1 - cs) + rx * sn) + z * (cs + rz * rz * (1 - cs)); \
-    return result; \
+    v0.v[0] = x * (cs + rx * rx * (1 - cs)) + y * (rx * ry * (1 - cs) - rz * sn) + z * (rx * rz * (1 - cs) + ry * sn); \
+    v0.v[1] = x * (ry * rx * (1 - cs) + rz * sn) + y * (cs + ry * ry * (1 - cs)) + z * (ry * rz * (1 - cs) - rx * sn); \
+    v0.v[2] = x * (rz * rx * (1 - cs) - ry * sn) + y * (rz * ry * (1 - cs) + rx * sn) + z * (cs + rz * rz * (1 - cs)); \
+    return v0; \
 }
 
 M_GEN_IMPL_vec3_rotate(f);
@@ -1116,7 +1092,7 @@ M_GEN_vec3i_rotate {
 #ifdef M_GEN_lerp
 #define M_GEN_IMPL_vec_lerp(_s,_char) \
 M_GEN_lerp(_s,_char) { \
-    for ( int i=0; i < ELEM_NUM(a0); i++ ){ \
+    for ( int i=0; i < ELEM_NUM(a0->v); i++ ){ \
         result->v[i] = a0->v[i] + (a1->v[i] - a0->v[i]) * f; \
     } \
     return result; \
@@ -1240,7 +1216,7 @@ M_GEN_IMPL_vec2_angle(d);
 M_GEN_distance_squared(_reschar,_s,_char) { \
     m##_reschar##_t sum = 0; \
     m##_reschar##_t subs; \
-    for ( int i=0; i < ELEM_NUM(v0); i++ ){ \
+    for ( int i=0; i < ELEM_NUM(v0->v); i++ ){ \
         subs = v0->v[i] - v1->v[i]; \
         sum += subs * subs; \
     } \
@@ -1278,9 +1254,7 @@ M_GEN_IMPL_distance(d,vec4,d);
 #ifdef M_GEN_triface_distance
 #define M_GEN_IMPL_triface_distance(_trichar,_s,_n,_char) \
 M_GEN_triface_distance(_trichar,_s,_n,_char) { \
-    struct _s##_n##_char tmp_v = *v0; \
-    _s##_n##_char##_subtract(&tmp_v, VEC3_CAST(_char,&t0->p[0])); \
-    return _s##_n##_char##_dot(VEC3_CAST(_char, &t0->normal), &tmp_v); \
+    return _s##_n##_char##_dot(VEC3_CAST(_char, t0.normal), _s##_n##_char##_subtract(v0, VEC3_CAST(_char,t0.p[0]))); \
 }
 
 M_GEN_IMPL_triface_distance(i,vec,3,i);
@@ -1291,21 +1265,17 @@ M_GEN_IMPL_triface_distance(i,vec,3,d);
 #ifdef M_GEN_line_distance_squared
 
 M_GEN_line_distance_squared {
-    double dir_len = vec3d_length(&l0->direction);
+    double dir_len = vec3d_length(l0.direction);
     if (dir_len == 0){
         throw(M_ERROR_CALCULATION);
         return -1;
     } else {
-        struct vec3d dir_norm = l0->direction;
-        vec3d_divide_num(&dir_norm, dir_len);
+        struct vec3d dir_norm = vec3d_divide_num(l0.direction, dir_len);
+        struct vec3d vec_to_point = vec3d_subtract(VEC3_CAST(d,v0), VEC3_CAST(d,l0.point));
 
-        struct vec3d vec_to_point = *VEC3_CAST(d,v0);
-        vec3d_subtract(&vec_to_point, VEC3_CAST(d,&l0->point));
-
-        md_t projection = vec3d_dot(&vec_to_point, &dir_norm);
-        vec3d_multiply_num(&dir_norm, projection);
-        vec3d_subtract(&vec_to_point, &dir_norm);
-        return vec3d_length_squared(&vec_to_point);
+        md_t projection = vec3d_dot(vec_to_point, dir_norm);
+        vec_to_point = vec3d_subtract(vec_to_point, vec3d_multiply_num(dir_norm, projection));
+        return vec3d_length_squared(vec_to_point);
     }
 }
 
@@ -1321,28 +1291,24 @@ M_GEN_line_distance {
 
 #ifdef M_GEN_line_init_from_points_vec
 M_GEN_line_init_from_points_vec(line2d, vec2d) {
-    l0->point = *v0;
-    l0->direction = *v1;
-    vec2d_subtract(&l0->direction, v0);
-    vec2d_normalize(&l0->direction);
-    return l0;
+    return (struct line2d){.point=v0, .direction=vec2d_normalize(vec2d_subtract(v1,v0))};
 }
 #endif
 
 #ifdef M_GEN_line_intersection
 M_GEN_line_intersection {
-    struct vec2d perpendicular = { -l0->direction.y, l0->direction.x };
-    double scalar = -vec2d_dot(&perpendicular, &l1->direction);
+    struct vec2d perpendicular = vec2d_tangent(l0.direction);
+    double scalar = -vec2d_dot(perpendicular, l1.direction);
 
     if (MdFABS(scalar) < MdEPSILON) {
         //ERROR
         return (struct vec2d){.x = NAN, .y = NAN};
     }
 
-    double distance = (perpendicular.x * (l1->point.x - l0->point.x) + perpendicular.y * (l1->point.y - l0->point.y)) / vec2d_length(&perpendicular);
+    double distance = (perpendicular.x * (l1.point.x - l0.point.x) + perpendicular.y * (l1.point.y - l0.point.y)) / vec2d_length(perpendicular);
 
     double t = distance / scalar;
-    return (struct vec2d){.x = l1->point.x + t * l1->direction.x, .y = l1->point.y + t * l1->direction.y};
+    return (struct vec2d){.x = l1.point.x + t * l1.direction.x, .y = l1.point.y + t * l1.direction.y};
 }
 #endif
 
@@ -1366,30 +1332,24 @@ M_GEN_line_array_equidistant {
                     cur_line = &l0;
                 }
             }
-            line2d_init_from_points_vec2d(cur_line, prev_point, cur_point);
-            perpendicular = cur_line->direction;
-            vec2d_tangent(&perpendicular);
-            vec2d_multiply_num(&perpendicular, distance);
-            vec2d_add(&cur_line->point, &perpendicular);
+            *cur_line = line2d_init_from_points_vec2d(*prev_point, *cur_point);
+            perpendicular = vec2d_multiply_num(vec2d_tangent(cur_line->direction), distance);
+            cur_line->point = vec2d_add(cur_line->point, perpendicular);
 
             if ( not *output_points ){
-                struct vec2d fp = *prev_point;
-                vec2d_add(&fp,&perpendicular);
-                cvector_push_back(*output_points,fp);
+                cvector_push_back(*output_points, vec2d_add(*prev_point,perpendicular));
             }
         }
 
         if(prev_line){
-            cvector_push_back(*output_points, line2d_intersection_line2d(prev_line, cur_line));
+            cvector_push_back(*output_points, line2d_intersection_line2d(*prev_line, *cur_line));
         }
 
         prev_point = cur_point;
 
         prev_line=cur_line;
     }
-    struct vec2d fp = *cvector_back(input_points);
-    vec2d_add(&fp,&perpendicular);
-    cvector_push_back(*output_points,fp);
+    cvector_push_back(*output_points, vec2d_add(*cvector_back(input_points), perpendicular) );
 }
 #endif
 
@@ -1467,15 +1427,15 @@ M_GEN_IMPL_null(quat,d);
 
 #define M_GEN_IMPL_quat_divide(_s,_char) \
 M_GEN_quat_divide(_s,_char) { \
-    struct _s##_char cj; \
-    _s##_char##_conjugate(&cj,q1); \
+    struct _s##_char cj = _s##_char##_conjugate(q1); \
+    struct _s##_char result; \
     \
-    result->v[0] = q0->w * cj.x + q0->x * cj.w + q0->y * cj.z - q0->z * cj.y; \
-    result->v[1] = q0->w * cj.y - q0->x * cj.z + q0->y * cj.w + q0->z * cj.x; \
-    result->v[2] = q0->w * cj.z + q0->x * cj.y - q0->y * cj.x + q0->z * cj.w; \
-    result->v[3] = q0->w * cj.w - q0->x * cj.x - q0->y * cj.y - q0->z * cj.z; \
+    result.v[0] = q0.w * cj.x + q0.x * cj.w + q0.y * cj.z - q0.z * cj.y; \
+    result.v[1] = q0.w * cj.y - q0.x * cj.z + q0.y * cj.w + q0.z * cj.x; \
+    result.v[2] = q0.w * cj.z + q0.x * cj.y - q0.y * cj.x + q0.z * cj.w; \
+    result.v[3] = q0.w * cj.w - q0.x * cj.x - q0.y * cj.y - q0.z * cj.z; \
     \
-    quat##_char##_normalize(result,result); \
+    result = quat##_char##_normalize(result); \
     return result; \
 }
 
@@ -1486,11 +1446,10 @@ M_GEN_IMPL_quat_divide(quat,d);
 #ifdef M_GEN_quat_conjugate
 #define M_GEN_IMPL_quat_conjugate(_s,_char) \
 M_GEN_quat_conjugate(_s,_char){ \
-    result->v[0] = -q0->v[0]; \
-    result->v[1] = -q0->v[1]; \
-    result->v[2] = -q0->v[2]; \
-    result->v[3] = q0->v[3]; \
-    return result; \
+    q0.v[0] = -q0.v[0]; \
+    q0.v[1] = -q0.v[1]; \
+    q0.v[2] = -q0.v[2]; \
+    return q0; \
 }
 
 M_GEN_IMPL_quat_conjugate(quat,f);
@@ -1500,12 +1459,12 @@ M_GEN_IMPL_quat_conjugate(quat,d);
 #ifdef M_GEN_inverse
 #define M_GEN_IMPL_quat_inverse(_s,_char) \
 M_GEN_inverse(_s,_char){ \
-    m##_char##_t l = (m##_char##_t)(1.0) / (a0->v[0] * a0->v[0] + a0->v[1] * a0->v[1] + a0->v[2] * a0->v[2] + a0->v[3] * a0->v[3]); \
-    result->v[0] = -a0->v[0] * l; \
-    result->v[1] = -a0->v[1] * l; \
-    result->v[2] = -a0->v[2] * l; \
-    result->v[3] = a0->v[3] * l; \
-    return result; \
+    m##_char##_t l = (m##_char##_t)(1.0) / (a0.v[0] * a0.v[0] + a0.v[1] * a0.v[1] + a0.v[2] * a0.v[2] + a0.v[3] * a0.v[3]); \
+    a0.v[0] = -a0.v[0] * l; \
+    a0.v[1] = -a0.v[1] * l; \
+    a0.v[2] = -a0.v[2] * l; \
+    a0.v[3] =  a0.v[3] * l; \
+    return a0; \
 }
 
 M_GEN_IMPL_quat_inverse(quat,f);
@@ -1515,13 +1474,8 @@ M_GEN_IMPL_quat_inverse(quat,d);
 M_GEN_inverse(_s,_char){ \
     struct mat2##_char inverse; \
     m##_char##_t det = mat2##_char##_determinant(a0); \
-    mat2##_char##_cofactor(&inverse, a0); \
-    mat2##_char##_multiply_num(&inverse, (m##_char##_t)(1.0) / det); \
-    result->v[0] = inverse.v[0]; \
-    result->v[1] = inverse.v[1]; \
-    result->v[2] = inverse.v[2]; \
-    result->v[3] = inverse.v[3]; \
-    return result; \
+    inverse = mat2##_char##_multiply_num( mat2##_char##_cofactor(a0), (m##_char##_t)(1.0) / det ); \
+    return inverse; \
 }
 
 M_GEN_IMPL_mat2_inverse(mat2,f);
@@ -1531,26 +1485,27 @@ M_GEN_IMPL_mat2_inverse(mat2,d);
 M_GEN_inverse(_s,_char){ \
     struct mat3##_char inverse; \
     m##_char##_t inverted_determinant; \
-    inverse.v[0] = a0->m22 * a0->m33 - a0->m32 * a0->m23; \
-    inverse.v[3] = a0->m13 * a0->m32 - a0->m12 * a0->m33; \
-    inverse.v[6] = a0->m12 * a0->m23 - a0->m13 * a0->m22; \
-    inverse.v[1] = a0->m23 * a0->m31 - a0->m21 * a0->m33; \
-    inverse.v[4] = a0->m11 * a0->m33 - a0->m13 * a0->m31; \
-    inverse.v[7] = a0->m21 * a0->m13 - a0->m11 * a0->m23; \
-    inverse.v[2] = a0->m21 * a0->m32 - a0->m31 * a0->m22; \
-    inverse.v[5] = a0->m31 * a0->m12 - a0->m11 * a0->m32; \
-    inverse.v[8] = a0->m11 * a0->m22 - a0->m21 * a0->m12; \
-    inverted_determinant = (m##_char##_t)(1.0) / (a0->m11 * inverse.v[0] + a0->m21 * inverse.v[3] + a0->m31 * inverse.v[6]); \
-    result->v[0] = inverse.v[0] * inverted_determinant; \
-    result->v[1] = inverse.v[1] * inverted_determinant; \
-    result->v[2] = inverse.v[2] * inverted_determinant; \
-    result->v[3] = inverse.v[3] * inverted_determinant; \
-    result->v[4] = inverse.v[4] * inverted_determinant; \
-    result->v[5] = inverse.v[5] * inverted_determinant; \
-    result->v[6] = inverse.v[6] * inverted_determinant; \
-    result->v[7] = inverse.v[7] * inverted_determinant; \
-    result->v[8] = inverse.v[8] * inverted_determinant; \
-    return result; \
+    inverse.v[0] = a0.m22 * a0.m33 - a0.m32 * a0.m23; \
+    inverse.v[3] = a0.m13 * a0.m32 - a0.m12 * a0.m33; \
+    inverse.v[6] = a0.m12 * a0.m23 - a0.m13 * a0.m22; \
+    inverse.v[1] = a0.m23 * a0.m31 - a0.m21 * a0.m33; \
+    inverse.v[4] = a0.m11 * a0.m33 - a0.m13 * a0.m31; \
+    inverse.v[7] = a0.m21 * a0.m13 - a0.m11 * a0.m23; \
+    inverse.v[2] = a0.m21 * a0.m32 - a0.m31 * a0.m22; \
+    inverse.v[5] = a0.m31 * a0.m12 - a0.m11 * a0.m32; \
+    inverse.v[8] = a0.m11 * a0.m22 - a0.m21 * a0.m12; \
+    inverted_determinant = \
+    (m##_char##_t)(1.0) / (a0.m11 * inverse.v[0] + a0.m21 * inverse.v[3] + a0.m31 * inverse.v[6]); \
+    inverse.v[0] = inverse.v[0] * inverted_determinant; \
+    inverse.v[1] = inverse.v[1] * inverted_determinant; \
+    inverse.v[2] = inverse.v[2] * inverted_determinant; \
+    inverse.v[3] = inverse.v[3] * inverted_determinant; \
+    inverse.v[4] = inverse.v[4] * inverted_determinant; \
+    inverse.v[5] = inverse.v[5] * inverted_determinant; \
+    inverse.v[6] = inverse.v[6] * inverted_determinant; \
+    inverse.v[7] = inverse.v[7] * inverted_determinant; \
+    inverse.v[8] = inverse.v[8] * inverted_determinant; \
+    return inverse; \
 }
 
 M_GEN_IMPL_mat3_inverse(mat3,f);
@@ -1560,120 +1515,120 @@ M_GEN_IMPL_mat3_inverse(mat3,d);
 M_GEN_inverse(_s,_char){ \
     struct mat4##_char inverse; \
     m##_char##_t inverted_determinant; \
-    inverse.v[0] = a0->m22 * a0->m33 * a0->m44 \
-        - a0->m22 * a0->m43 * a0->m34 \
-        - a0->m23 * a0->m32 * a0->m44 \
-        + a0->m23 * a0->m42 * a0->m34 \
-        + a0->m24 * a0->m32 * a0->m43 \
-        - a0->m24 * a0->m42 * a0->m33; \
-    inverse.v[4] = -a0->m12 * a0->m33 * a0->m44 \
-        + a0->m12 * a0->m43 * a0->m34 \
-        + a0->m13 * a0->m32 * a0->m44 \
-        - a0->m13 * a0->m42 * a0->m34 \
-        - a0->m14 * a0->m32 * a0->m43 \
-        + a0->m14 * a0->m42 * a0->m33; \
-    inverse.v[8] = a0->m12 * a0->m23 * a0->m44 \
-        - a0->m12 * a0->m43 * a0->m24 \
-        - a0->m13 * a0->m22 * a0->m44 \
-        + a0->m13 * a0->m42 * a0->m24 \
-        + a0->m14 * a0->m22 * a0->m43 \
-        - a0->m14 * a0->m42 * a0->m23; \
-    inverse.v[12] = -a0->m12 * a0->m23 * a0->m34 \
-        + a0->m12 * a0->m33 * a0->m24 \
-        + a0->m13 * a0->m22 * a0->m34 \
-        - a0->m13 * a0->m32 * a0->m24 \
-        - a0->m14 * a0->m22 * a0->m33 \
-        + a0->m14 * a0->m32 * a0->m23; \
-    inverse.v[1] = -a0->m21 * a0->m33 * a0->m44 \
-        + a0->m21 * a0->m43 * a0->m34 \
-        + a0->m23 * a0->m31 * a0->m44 \
-        - a0->m23 * a0->m41 * a0->m34 \
-        - a0->m24 * a0->m31 * a0->m43 \
-        + a0->m24 * a0->m41 * a0->m33; \
-    inverse.v[5] = a0->m11 * a0->m33 * a0->m44 \
-        -a0->m11 * a0->m43 * a0->m34 \
-        - a0->m13 * a0->m31 * a0->m44 \
-        + a0->m13 * a0->m41 * a0->m34 \
-        + a0->m14 * a0->m31 * a0->m43 \
-        - a0->m14 * a0->m41 * a0->m33; \
-    inverse.v[9] = -a0->m11 * a0->m23 * a0->m44 \
-        +a0->m11 * a0->m43 * a0->m24 \
-        + a0->m13 * a0->m21 * a0->m44 \
-        - a0->m13 * a0->m41 * a0->m24 \
-        - a0->m14 * a0->m21 * a0->m43 \
-        + a0->m14 * a0->m41 * a0->m23; \
-    inverse.v[13] =a0->m11 * a0->m23 * a0->m34 \
-        -a0->m11 * a0->m33 * a0->m24 \
-        - a0->m13 * a0->m21 * a0->m34 \
-        + a0->m13 * a0->m31 * a0->m24 \
-        + a0->m14 * a0->m21 * a0->m33 \
-        - a0->m14 * a0->m31 * a0->m23; \
-    inverse.v[2] = a0->m21 * a0->m32 * a0->m44 \
-        - a0->m21 * a0->m42 * a0->m34 \
-        - a0->m22 * a0->m31 * a0->m44 \
-        + a0->m22 * a0->m41 * a0->m34 \
-        + a0->m24 * a0->m31 * a0->m42 \
-        - a0->m24 * a0->m41 * a0->m32; \
-    inverse.v[6] = -a0->m11 * a0->m32 * a0->m44 \
-        + a0->m11 * a0->m42 * a0->m34 \
-        + a0->m12 * a0->m31 * a0->m44 \
-        - a0->m12 * a0->m41 * a0->m34 \
-        - a0->m14 * a0->m31 * a0->m42 \
-        + a0->m14 * a0->m41 * a0->m32; \
-    inverse.v[10] =a0->m11 * a0->m22 * a0->m44 \
-        -a0->m11 * a0->m42 * a0->m24 \
-        - a0->m12 * a0->m21 * a0->m44 \
-        + a0->m12 * a0->m41 * a0->m24 \
-        + a0->m14 * a0->m21 * a0->m42 \
-        - a0->m14 * a0->m41 * a0->m22; \
-    inverse.v[14] = -a0->m11 * a0->m22 * a0->m34 \
-        + a0->m11 * a0->m32 * a0->m24 \
-        + a0->m12 * a0->m21 * a0->m34 \
-        - a0->m12 * a0->m31 * a0->m24 \
-        - a0->m14 * a0->m21 * a0->m32 \
-        + a0->m14 * a0->m31 * a0->m22; \
-    inverse.v[3] = -a0->m21 * a0->m32 * a0->m43 \
-        + a0->m21 * a0->m42 * a0->m33 \
-        + a0->m22 * a0->m31 * a0->m43 \
-        - a0->m22 * a0->m41 * a0->m33 \
-        - a0->m23 * a0->m31 * a0->m42 \
-        + a0->m23 * a0->m41 * a0->m32; \
-    inverse.v[7] =a0->m11 * a0->m32 * a0->m43 \
-        -a0->m11 * a0->m42 * a0->m33 \
-        - a0->m12 * a0->m31 * a0->m43 \
-        + a0->m12 * a0->m41 * a0->m33 \
-        + a0->m13 * a0->m31 * a0->m42 \
-        - a0->m13 * a0->m41 * a0->m32; \
-    inverse.v[11] = -a0->m11 * a0->m22 * a0->m43 \
-        + a0->m11 * a0->m42 * a0->m23 \
-        + a0->m12 * a0->m21 * a0->m43 \
-        - a0->m12 * a0->m41 * a0->m23 \
-        - a0->m13 * a0->m21 * a0->m42 \
-        + a0->m13 * a0->m41 * a0->m22; \
-    inverse.v[15] =a0->m11 * a0->m22 * a0->m33 \
-        -a0->m11 * a0->m32 * a0->m23 \
-        - a0->m12 * a0->m21 * a0->m33 \
-        + a0->m12 * a0->m31 * a0->m23 \
-        + a0->m13 * a0->m21 * a0->m32 \
-        - a0->m13 * a0->m31 * a0->m22; \
-    inverted_determinant = (m##_char##_t)(1.0) / (a0->m11 * inverse.v[0] + a0->m21 * inverse.v[4] + a0->m31 * inverse.v[8] + a0->m41 * inverse.v[12]); \
-    result->v[0] = inverse.v[0] * inverted_determinant; \
-    result->v[1] = inverse.v[1] * inverted_determinant; \
-    result->v[2] = inverse.v[2] * inverted_determinant; \
-    result->v[3] = inverse.v[3] * inverted_determinant; \
-    result->v[4] = inverse.v[4] * inverted_determinant; \
-    result->v[5] = inverse.v[5] * inverted_determinant; \
-    result->v[6] = inverse.v[6] * inverted_determinant; \
-    result->v[7] = inverse.v[7] * inverted_determinant; \
-    result->v[8] = inverse.v[8] * inverted_determinant; \
-    result->v[9] = inverse.v[9] * inverted_determinant; \
-    result->v[10] = inverse.v[10] * inverted_determinant; \
-    result->v[11] = inverse.v[11] * inverted_determinant; \
-    result->v[12] = inverse.v[12] * inverted_determinant; \
-    result->v[13] = inverse.v[13] * inverted_determinant; \
-    result->v[14] = inverse.v[14] * inverted_determinant; \
-    result->v[15] = inverse.v[15] * inverted_determinant; \
-    return result; \
+    inverse.v[0] = a0.m22 * a0.m33 * a0.m44 \
+        - a0.m22 * a0.m43 * a0.m34 \
+        - a0.m23 * a0.m32 * a0.m44 \
+        + a0.m23 * a0.m42 * a0.m34 \
+        + a0.m24 * a0.m32 * a0.m43 \
+        - a0.m24 * a0.m42 * a0.m33; \
+    inverse.v[4] = -a0.m12 * a0.m33 * a0.m44 \
+        + a0.m12 * a0.m43 * a0.m34 \
+        + a0.m13 * a0.m32 * a0.m44 \
+        - a0.m13 * a0.m42 * a0.m34 \
+        - a0.m14 * a0.m32 * a0.m43 \
+        + a0.m14 * a0.m42 * a0.m33; \
+    inverse.v[8] = a0.m12 * a0.m23 * a0.m44 \
+        - a0.m12 * a0.m43 * a0.m24 \
+        - a0.m13 * a0.m22 * a0.m44 \
+        + a0.m13 * a0.m42 * a0.m24 \
+        + a0.m14 * a0.m22 * a0.m43 \
+        - a0.m14 * a0.m42 * a0.m23; \
+    inverse.v[12] = -a0.m12 * a0.m23 * a0.m34 \
+        + a0.m12 * a0.m33 * a0.m24 \
+        + a0.m13 * a0.m22 * a0.m34 \
+        - a0.m13 * a0.m32 * a0.m24 \
+        - a0.m14 * a0.m22 * a0.m33 \
+        + a0.m14 * a0.m32 * a0.m23; \
+    inverse.v[1] = -a0.m21 * a0.m33 * a0.m44 \
+        + a0.m21 * a0.m43 * a0.m34 \
+        + a0.m23 * a0.m31 * a0.m44 \
+        - a0.m23 * a0.m41 * a0.m34 \
+        - a0.m24 * a0.m31 * a0.m43 \
+        + a0.m24 * a0.m41 * a0.m33; \
+    inverse.v[5] = a0.m11 * a0.m33 * a0.m44 \
+        -a0.m11 * a0.m43 * a0.m34 \
+        - a0.m13 * a0.m31 * a0.m44 \
+        + a0.m13 * a0.m41 * a0.m34 \
+        + a0.m14 * a0.m31 * a0.m43 \
+        - a0.m14 * a0.m41 * a0.m33; \
+    inverse.v[9] = -a0.m11 * a0.m23 * a0.m44 \
+        +a0.m11 * a0.m43 * a0.m24 \
+        + a0.m13 * a0.m21 * a0.m44 \
+        - a0.m13 * a0.m41 * a0.m24 \
+        - a0.m14 * a0.m21 * a0.m43 \
+        + a0.m14 * a0.m41 * a0.m23; \
+    inverse.v[13] =a0.m11 * a0.m23 * a0.m34 \
+        -a0.m11 * a0.m33 * a0.m24 \
+        - a0.m13 * a0.m21 * a0.m34 \
+        + a0.m13 * a0.m31 * a0.m24 \
+        + a0.m14 * a0.m21 * a0.m33 \
+        - a0.m14 * a0.m31 * a0.m23; \
+    inverse.v[2] = a0.m21 * a0.m32 * a0.m44 \
+        - a0.m21 * a0.m42 * a0.m34 \
+        - a0.m22 * a0.m31 * a0.m44 \
+        + a0.m22 * a0.m41 * a0.m34 \
+        + a0.m24 * a0.m31 * a0.m42 \
+        - a0.m24 * a0.m41 * a0.m32; \
+    inverse.v[6] = -a0.m11 * a0.m32 * a0.m44 \
+        + a0.m11 * a0.m42 * a0.m34 \
+        + a0.m12 * a0.m31 * a0.m44 \
+        - a0.m12 * a0.m41 * a0.m34 \
+        - a0.m14 * a0.m31 * a0.m42 \
+        + a0.m14 * a0.m41 * a0.m32; \
+    inverse.v[10] =a0.m11 * a0.m22 * a0.m44 \
+        -a0.m11 * a0.m42 * a0.m24 \
+        - a0.m12 * a0.m21 * a0.m44 \
+        + a0.m12 * a0.m41 * a0.m24 \
+        + a0.m14 * a0.m21 * a0.m42 \
+        - a0.m14 * a0.m41 * a0.m22; \
+    inverse.v[14] = -a0.m11 * a0.m22 * a0.m34 \
+        + a0.m11 * a0.m32 * a0.m24 \
+        + a0.m12 * a0.m21 * a0.m34 \
+        - a0.m12 * a0.m31 * a0.m24 \
+        - a0.m14 * a0.m21 * a0.m32 \
+        + a0.m14 * a0.m31 * a0.m22; \
+    inverse.v[3] = -a0.m21 * a0.m32 * a0.m43 \
+        + a0.m21 * a0.m42 * a0.m33 \
+        + a0.m22 * a0.m31 * a0.m43 \
+        - a0.m22 * a0.m41 * a0.m33 \
+        - a0.m23 * a0.m31 * a0.m42 \
+        + a0.m23 * a0.m41 * a0.m32; \
+    inverse.v[7] =a0.m11 * a0.m32 * a0.m43 \
+        -a0.m11 * a0.m42 * a0.m33 \
+        - a0.m12 * a0.m31 * a0.m43 \
+        + a0.m12 * a0.m41 * a0.m33 \
+        + a0.m13 * a0.m31 * a0.m42 \
+        - a0.m13 * a0.m41 * a0.m32; \
+    inverse.v[11] = -a0.m11 * a0.m22 * a0.m43 \
+        + a0.m11 * a0.m42 * a0.m23 \
+        + a0.m12 * a0.m21 * a0.m43 \
+        - a0.m12 * a0.m41 * a0.m23 \
+        - a0.m13 * a0.m21 * a0.m42 \
+        + a0.m13 * a0.m41 * a0.m22; \
+    inverse.v[15] =a0.m11 * a0.m22 * a0.m33 \
+        -a0.m11 * a0.m32 * a0.m23 \
+        - a0.m12 * a0.m21 * a0.m33 \
+        + a0.m12 * a0.m31 * a0.m23 \
+        + a0.m13 * a0.m21 * a0.m32 \
+        - a0.m13 * a0.m31 * a0.m22; \
+    inverted_determinant = (m##_char##_t)(1.0) / (a0.m11 * inverse.v[0] + a0.m21 * inverse.v[4] + a0.m31 * inverse.v[8] + a0.m41 * inverse.v[12]); \
+    inverse.v[0] = inverse.v[0] * inverted_determinant; \
+    inverse.v[1] = inverse.v[1] * inverted_determinant; \
+    inverse.v[2] = inverse.v[2] * inverted_determinant; \
+    inverse.v[3] = inverse.v[3] * inverted_determinant; \
+    inverse.v[4] = inverse.v[4] * inverted_determinant; \
+    inverse.v[5] = inverse.v[5] * inverted_determinant; \
+    inverse.v[6] = inverse.v[6] * inverted_determinant; \
+    inverse.v[7] = inverse.v[7] * inverted_determinant; \
+    inverse.v[8] = inverse.v[8] * inverted_determinant; \
+    inverse.v[9] = inverse.v[9] * inverted_determinant; \
+    inverse.v[10] = inverse.v[10] * inverted_determinant; \
+    inverse.v[11] = inverse.v[11] * inverted_determinant; \
+    inverse.v[12] = inverse.v[12] * inverted_determinant; \
+    inverse.v[13] = inverse.v[13] * inverted_determinant; \
+    inverse.v[14] = inverse.v[14] * inverted_determinant; \
+    inverse.v[15] = inverse.v[15] * inverted_determinant; \
+    return inverse; \
 }
 
 M_GEN_IMPL_mat4_inverse(mat4,f);
@@ -1683,12 +1638,12 @@ M_GEN_IMPL_mat4_inverse(mat4,d);
 #ifdef M_GEN_quat_normalize
 #define M_GEN_IMPL_quat_normalize(_s,_char) \
 M_GEN_quat_normalize(_s,_char){ \
-    m##_char##_t l = (m##_char##_t)(1.0) / M##_char##SQRT(q0->v[0] * q0->v[0] + q0->v[1] * q0->v[1] + q0->v[2] * q0->v[2] + q0->v[3] * q0->v[3]); \
-    result->v[0] = q0->v[0] * l; \
-    result->v[1] = q0->v[1] * l; \
-    result->v[2] = q0->v[2] * l; \
-    result->v[3] = q0->v[3] * l; \
-    return result; \
+    m##_char##_t l = (m##_char##_t)(1.0) / M##_char##SQRT(q0.v[0] * q0.v[0] + q0.v[1] * q0.v[1] + q0.v[2] * q0.v[2] + q0.v[3] * q0.v[3]); \
+    q0.v[0] *= l; \
+    q0.v[1] *= l; \
+    q0.v[2] *= l; \
+    q0.v[3] *= l; \
+    return q0; \
 }
 
 M_GEN_IMPL_quat_normalize(quat,f);
@@ -1735,14 +1690,12 @@ M_GEN_IMPL_quat_from_axis_angle(quat,d);
 #ifdef M_GEN_quat_from_vec3
 #define M_GEN_IMPL_quat_from_vec3(_char) \
 M_GEN_quat_from_vec3(_char){ \
-    struct vec3##_char cross; \
+    struct vec3##_char cross = vec3##_char##_cross(v0, v1); \
     m##_char##_t d = vec3##_char##_dot(v0, v1); \
     m##_char##_t a_ls = vec3##_char##_length_squared(v0); \
     m##_char##_t b_ls = vec3##_char##_length_squared(v0); \
-    vec3##_char##_cross(&cross, v0, v1); \
-    *result = (struct quat##_char){.v={cross.v[0], cross.v[1], cross.v[1], d + M##_char##SQRT(a_ls * b_ls)}}; \
-    quat##_char##_normalize(result, result); \
-    return result; \
+    \
+    return quat##_char##_normalize((struct quat##_char){.v={cross.v[0], cross.v[1], cross.v[1], d + M##_char##SQRT(a_ls * b_ls)}}); \
 }
 
 M_GEN_IMPL_quat_from_vec3(f);
@@ -1792,13 +1745,12 @@ M_GEN_IMPL_quat_from_mat4(quat,d);
 #ifdef M_GEN_quat_slerp
 #define M_GEN_IMPL_quat_slerp(_s,_char) \
 M_GEN_quat_slerp(_s,_char){ \
-    struct quat##_char tmp1; \
+    struct quat##_char tmp1 = q1; \
     m##_char##_t d = quat##_char##_dot(q0, q1); \
     m##_char##_t f0; \
     m##_char##_t f1; \
-    tmp1 = *q1; \
     if (d < (m##_char##_t)(0.0)) { \
-        quat##_char##_negative(&tmp1, &tmp1); \
+        tmp1 = quat##_char##_negative(tmp1); \
         d = -d; \
     } \
     if (d > (m##_char##_t)(0.9995)) { \
@@ -1810,11 +1762,11 @@ M_GEN_quat_slerp(_s,_char){ \
         f0 = M##_char##SIN(((m##_char##_t)(1.0) - f) * theta) / sin_theta; \
         f1 = M##_char##SIN(f * theta) / sin_theta; \
     } \
-    result->v[0] = q0->v[0] * f0 + tmp1.v[0] * f1; \
-    result->v[1] = q0->v[1] * f0 + tmp1.v[1] * f1; \
-    result->v[2] = q0->v[2] * f0 + tmp1.v[2] * f1; \
-    result->v[3] = q0->v[3] * f0 + tmp1.v[3] * f1; \
-    return result; \
+    q0.v[0] *= f0 + tmp1.v[0] * f1; \
+    q0.v[1] *= f0 + tmp1.v[1] * f1; \
+    q0.v[2] *= f0 + tmp1.v[2] * f1; \
+    q0.v[3] *= f0 + tmp1.v[3] * f1; \
+    return q0; \
 }
 
 M_GEN_IMPL_quat_slerp(quat,f);
@@ -1872,7 +1824,7 @@ M_GEN_IMPL4_identity(mat4,d);
 #ifdef M_GEN_determinant
 #define M_GEN_IMPL_mat2_determinant(_s,_char) \
 M_GEN_determinant(_s,_char){ \
-    return m0->m11 * m0->m22 - m0->m12 * m0->m21; \
+    return m0.m11 * m0.m22 - m0.m12 * m0.m21; \
 }
 
 M_GEN_IMPL_mat2_determinant(mat2,f);
@@ -1881,12 +1833,12 @@ M_GEN_IMPL_mat2_determinant(mat2,d);
 #define M_GEN_IMPL_mat3_determinant(_s,_char) \
 M_GEN_determinant(_s,_char){ \
     return \
-          m0->m11 * m0->m22 * m0->m33 \
-        + m0->m12 * m0->m23 * m0->m31 \
-        + m0->m13 * m0->m21 * m0->m32 \
-        - m0->m11 * m0->m23 * m0->m32 \
-        - m0->m12 * m0->m21 * m0->m33 \
-        - m0->m13 * m0->m22 * m0->m31; \
+          m0.m11 * m0.m22 * m0.m33 \
+        + m0.m12 * m0.m23 * m0.m31 \
+        + m0.m13 * m0.m21 * m0.m32 \
+        - m0.m11 * m0.m23 * m0.m32 \
+        - m0.m12 * m0.m21 * m0.m33 \
+        - m0.m13 * m0.m22 * m0.m31; \
 }
 
 M_GEN_IMPL_mat3_determinant(mat3,f);
@@ -1894,18 +1846,18 @@ M_GEN_IMPL_mat3_determinant(mat3,d);
 
 #define M_GEN_IMPL_mat4_determinant(_s,_char) \
 M_GEN_determinant(_s,_char){ \
-    return m0->m14 * m0->m23 * m0->m32 * m0->m41 - m0->m13 * m0->m24 * m0->m32 * m0->m41 \
-         - m0->m14 * m0->m22 * m0->m33 * m0->m41 + m0->m12 * m0->m24 * m0->m33 * m0->m41 \
-         + m0->m13 * m0->m22 * m0->m34 * m0->m41 - m0->m12 * m0->m23 * m0->m34 * m0->m41 \
-         - m0->m14 * m0->m23 * m0->m31 * m0->m42 + m0->m13 * m0->m24 * m0->m31 * m0->m42 \
-         + m0->m14 * m0->m21 * m0->m33 * m0->m42 - m0->m11 * m0->m24 * m0->m33 * m0->m42 \
-         - m0->m13 * m0->m21 * m0->m34 * m0->m42 + m0->m11 * m0->m23 * m0->m34 * m0->m42 \
-         + m0->m14 * m0->m22 * m0->m31 * m0->m43 - m0->m12 * m0->m24 * m0->m31 * m0->m43 \
-         - m0->m14 * m0->m21 * m0->m32 * m0->m43 + m0->m11 * m0->m24 * m0->m32 * m0->m43 \
-         + m0->m12 * m0->m21 * m0->m34 * m0->m43 - m0->m11 * m0->m22 * m0->m34 * m0->m43 \
-         - m0->m13 * m0->m22 * m0->m31 * m0->m44 + m0->m12 * m0->m23 * m0->m31 * m0->m44 \
-         + m0->m13 * m0->m21 * m0->m32 * m0->m44 - m0->m11 * m0->m23 * m0->m32 * m0->m44 \
-         - m0->m12 * m0->m21 * m0->m33 * m0->m44 + m0->m11 * m0->m22 * m0->m33 * m0->m44; \
+    return m0.m14 * m0.m23 * m0.m32 * m0.m41 - m0.m13 * m0.m24 * m0.m32 * m0.m41 \
+         - m0.m14 * m0.m22 * m0.m33 * m0.m41 + m0.m12 * m0.m24 * m0.m33 * m0.m41 \
+         + m0.m13 * m0.m22 * m0.m34 * m0.m41 - m0.m12 * m0.m23 * m0.m34 * m0.m41 \
+         - m0.m14 * m0.m23 * m0.m31 * m0.m42 + m0.m13 * m0.m24 * m0.m31 * m0.m42 \
+         + m0.m14 * m0.m21 * m0.m33 * m0.m42 - m0.m11 * m0.m24 * m0.m33 * m0.m42 \
+         - m0.m13 * m0.m21 * m0.m34 * m0.m42 + m0.m11 * m0.m23 * m0.m34 * m0.m42 \
+         + m0.m14 * m0.m22 * m0.m31 * m0.m43 - m0.m12 * m0.m24 * m0.m31 * m0.m43 \
+         - m0.m14 * m0.m21 * m0.m32 * m0.m43 + m0.m11 * m0.m24 * m0.m32 * m0.m43 \
+         + m0.m12 * m0.m21 * m0.m34 * m0.m43 - m0.m11 * m0.m22 * m0.m34 * m0.m43 \
+         - m0.m13 * m0.m22 * m0.m31 * m0.m44 + m0.m12 * m0.m23 * m0.m31 * m0.m44 \
+         + m0.m13 * m0.m21 * m0.m32 * m0.m44 - m0.m11 * m0.m23 * m0.m32 * m0.m44 \
+         - m0.m12 * m0.m21 * m0.m33 * m0.m44 + m0.m11 * m0.m22 * m0.m33 * m0.m44; \
 }
 
 M_GEN_IMPL_mat4_determinant(mat4,f);
@@ -2004,15 +1956,11 @@ M_GEN_IMPL_mat4_transpose(mat4,d);
 #define M_GEN_IMPL_mat2_cofactor(_s,_char) \
 M_GEN_cofactor(_s,_char){ \
     struct _s##_char cofactor; \
-    cofactor.v[0] = m0->v[3]; \
-    cofactor.v[1] = -m0->v[2]; \
-    cofactor.v[2] = -m0->v[1]; \
-    cofactor.v[3] = m0->v[0]; \
-    result->v[0] = cofactor.v[0]; \
-    result->v[1] = cofactor.v[1]; \
-    result->v[2] = cofactor.v[2]; \
-    result->v[3] = cofactor.v[3]; \
-    return result; \
+    cofactor.v[0] =  m0.v[3]; \
+    cofactor.v[1] = -m0.v[2]; \
+    cofactor.v[2] = -m0.v[1]; \
+    cofactor.v[3] =  m0.v[0]; \
+    return cofactor; \
 }
 
 M_GEN_IMPL_mat2_cofactor(mat2,f);
@@ -2022,61 +1970,52 @@ M_GEN_IMPL_mat2_cofactor(mat2,d);
 M_GEN_cofactor(_s,_char){ \
     struct mat3##_char cofactor; \
     struct mat2##_char minor; \
-    minor.v[0] = m0->v[4]; \
-    minor.v[1] = m0->v[5]; \
-    minor.v[2] = m0->v[7]; \
-    minor.v[3] = m0->v[8]; \
-    cofactor.v[0] = mat2##_char##_determinant(&minor); \
-    minor.v[0] = m0->v[3]; \
-    minor.v[1] = m0->v[5]; \
-    minor.v[2] = m0->v[6]; \
-    minor.v[3] = m0->v[8]; \
-    cofactor.v[1] = -mat2##_char##_determinant(&minor); \
-    minor.v[0] = m0->v[3]; \
-    minor.v[1] = m0->v[4]; \
-    minor.v[2] = m0->v[6]; \
-    minor.v[3] = m0->v[7]; \
-    cofactor.v[2] = mat2##_char##_determinant(&minor); \
-    minor.v[0] = m0->v[1]; \
-    minor.v[1] = m0->v[2]; \
-    minor.v[2] = m0->v[7]; \
-    minor.v[3] = m0->v[8]; \
-    cofactor.v[3] = -mat2##_char##_determinant(&minor); \
-    minor.v[0] = m0->v[0]; \
-    minor.v[1] = m0->v[2]; \
-    minor.v[2] = m0->v[6]; \
-    minor.v[3] = m0->v[8]; \
-    cofactor.v[4] = mat2##_char##_determinant(&minor); \
-    minor.v[0] = m0->v[0]; \
-    minor.v[1] = m0->v[1]; \
-    minor.v[2] = m0->v[6]; \
-    minor.v[3] = m0->v[7]; \
-    cofactor.v[5] = -mat2##_char##_determinant(&minor); \
-    minor.v[0] = m0->v[1]; \
-    minor.v[1] = m0->v[2]; \
-    minor.v[2] = m0->v[4]; \
-    minor.v[3] = m0->v[5]; \
-    cofactor.v[6] = mat2##_char##_determinant(&minor); \
-    minor.v[0] = m0->v[0]; \
-    minor.v[1] = m0->v[2]; \
-    minor.v[2] = m0->v[3]; \
-    minor.v[3] = m0->v[5]; \
-    cofactor.v[7] = -mat2##_char##_determinant(&minor); \
-    minor.v[0] = m0->v[0]; \
-    minor.v[1] = m0->v[1]; \
-    minor.v[2] = m0->v[3]; \
-    minor.v[3] = m0->v[4]; \
-    cofactor.v[8] = mat2##_char##_determinant(&minor); \
-    result->v[0] = cofactor.v[0]; \
-    result->v[1] = cofactor.v[1]; \
-    result->v[2] = cofactor.v[2]; \
-    result->v[3] = cofactor.v[3]; \
-    result->v[4] = cofactor.v[4]; \
-    result->v[5] = cofactor.v[5]; \
-    result->v[6] = cofactor.v[6]; \
-    result->v[7] = cofactor.v[7]; \
-    result->v[8] = cofactor.v[8]; \
-    return result; \
+    minor.v[0] = m0.v[4]; \
+    minor.v[1] = m0.v[5]; \
+    minor.v[2] = m0.v[7]; \
+    minor.v[3] = m0.v[8]; \
+    cofactor.v[0] = mat2##_char##_determinant(minor); \
+    minor.v[0] = m0.v[3]; \
+    minor.v[1] = m0.v[5]; \
+    minor.v[2] = m0.v[6]; \
+    minor.v[3] = m0.v[8]; \
+    cofactor.v[1] = -mat2##_char##_determinant(minor); \
+    minor.v[0] = m0.v[3]; \
+    minor.v[1] = m0.v[4]; \
+    minor.v[2] = m0.v[6]; \
+    minor.v[3] = m0.v[7]; \
+    cofactor.v[2] = mat2##_char##_determinant(minor); \
+    minor.v[0] = m0.v[1]; \
+    minor.v[1] = m0.v[2]; \
+    minor.v[2] = m0.v[7]; \
+    minor.v[3] = m0.v[8]; \
+    cofactor.v[3] = -mat2##_char##_determinant(minor); \
+    minor.v[0] = m0.v[0]; \
+    minor.v[1] = m0.v[2]; \
+    minor.v[2] = m0.v[6]; \
+    minor.v[3] = m0.v[8]; \
+    cofactor.v[4] = mat2##_char##_determinant(minor); \
+    minor.v[0] = m0.v[0]; \
+    minor.v[1] = m0.v[1]; \
+    minor.v[2] = m0.v[6]; \
+    minor.v[3] = m0.v[7]; \
+    cofactor.v[5] = -mat2##_char##_determinant(minor); \
+    minor.v[0] = m0.v[1]; \
+    minor.v[1] = m0.v[2]; \
+    minor.v[2] = m0.v[4]; \
+    minor.v[3] = m0.v[5]; \
+    cofactor.v[6] = mat2##_char##_determinant(minor); \
+    minor.v[0] = m0.v[0]; \
+    minor.v[1] = m0.v[2]; \
+    minor.v[2] = m0.v[3]; \
+    minor.v[3] = m0.v[5]; \
+    cofactor.v[7] = -mat2##_char##_determinant(minor); \
+    minor.v[0] = m0.v[0]; \
+    minor.v[1] = m0.v[1]; \
+    minor.v[2] = m0.v[3]; \
+    minor.v[3] = m0.v[4]; \
+    cofactor.v[8] = mat2##_char##_determinant(minor); \
+    return cofactor; \
 }
 
 M_GEN_IMPL_mat3_cofactor(mat3,f);
@@ -2086,183 +2025,167 @@ M_GEN_IMPL_mat3_cofactor(mat3,d);
 M_GEN_cofactor(_s,_char){ \
     struct mat4##_char cofactor; \
     struct mat3##_char minor; \
-    minor.v[0] = m0->v[5]; \
-    minor.v[1] = m0->v[6]; \
-    minor.v[2] = m0->v[7]; \
-    minor.v[3] = m0->v[9]; \
-    minor.v[4] = m0->v[10]; \
-    minor.v[5] = m0->v[11]; \
-    minor.v[6] = m0->v[13]; \
-    minor.v[7] = m0->v[14]; \
-    minor.v[8] = m0->v[15]; \
-    cofactor.v[0] = mat3##_char##_determinant(&minor); \
-    minor.v[0] = m0->v[4]; \
-    minor.v[1] = m0->v[6]; \
-    minor.v[2] = m0->v[7]; \
-    minor.v[3] = m0->v[8]; \
-    minor.v[4] = m0->v[10]; \
-    minor.v[5] = m0->v[11]; \
-    minor.v[6] = m0->v[12]; \
-    minor.v[7] = m0->v[14]; \
-    minor.v[8] = m0->v[15]; \
-    cofactor.v[1] = -mat3##_char##_determinant(&minor); \
-    minor.v[0] = m0->v[4]; \
-    minor.v[1] = m0->v[5]; \
-    minor.v[2] = m0->v[7]; \
-    minor.v[3] = m0->v[8]; \
-    minor.v[4] = m0->v[9]; \
-    minor.v[5] = m0->v[11]; \
-    minor.v[6] = m0->v[12]; \
-    minor.v[7] = m0->v[13]; \
-    minor.v[8] = m0->v[15]; \
-    cofactor.v[2] = mat3##_char##_determinant(&minor); \
-    minor.v[0] = m0->v[4]; \
-    minor.v[1] = m0->v[5]; \
-    minor.v[2] = m0->v[6]; \
-    minor.v[3] = m0->v[8]; \
-    minor.v[4] = m0->v[9]; \
-    minor.v[5] = m0->v[10]; \
-    minor.v[6] = m0->v[12]; \
-    minor.v[7] = m0->v[13]; \
-    minor.v[8] = m0->v[14]; \
-    cofactor.v[3] = -mat3##_char##_determinant(&minor); \
-    minor.v[0] = m0->v[1]; \
-    minor.v[1] = m0->v[2]; \
-    minor.v[2] = m0->v[3]; \
-    minor.v[3] = m0->v[9]; \
-    minor.v[4] = m0->v[10]; \
-    minor.v[5] = m0->v[11]; \
-    minor.v[6] = m0->v[13]; \
-    minor.v[7] = m0->v[14]; \
-    minor.v[8] = m0->v[15]; \
-    cofactor.v[4] = -mat3##_char##_determinant(&minor); \
-    minor.v[0] = m0->v[0]; \
-    minor.v[1] = m0->v[2]; \
-    minor.v[2] = m0->v[3]; \
-    minor.v[3] = m0->v[8]; \
-    minor.v[4] = m0->v[10]; \
-    minor.v[5] = m0->v[11]; \
-    minor.v[6] = m0->v[12]; \
-    minor.v[7] = m0->v[14]; \
-    minor.v[8] = m0->v[15]; \
-    cofactor.v[5] = mat3##_char##_determinant(&minor); \
-    minor.v[0] = m0->v[0]; \
-    minor.v[1] = m0->v[1]; \
-    minor.v[2] = m0->v[3]; \
-    minor.v[3] = m0->v[8]; \
-    minor.v[4] = m0->v[9]; \
-    minor.v[5] = m0->v[11]; \
-    minor.v[6] = m0->v[12]; \
-    minor.v[7] = m0->v[13]; \
-    minor.v[8] = m0->v[15]; \
-    cofactor.v[6] = -mat3##_char##_determinant(&minor); \
-    minor.v[0] = m0->v[0]; \
-    minor.v[1] = m0->v[1]; \
-    minor.v[2] = m0->v[2]; \
-    minor.v[3] = m0->v[8]; \
-    minor.v[4] = m0->v[9]; \
-    minor.v[5] = m0->v[10]; \
-    minor.v[6] = m0->v[12]; \
-    minor.v[7] = m0->v[13]; \
-    minor.v[8] = m0->v[14]; \
-    cofactor.v[7] = mat3##_char##_determinant(&minor); \
-    minor.v[0] = m0->v[1]; \
-    minor.v[1] = m0->v[2]; \
-    minor.v[2] = m0->v[3]; \
-    minor.v[3] = m0->v[5]; \
-    minor.v[4] = m0->v[6]; \
-    minor.v[5] = m0->v[7]; \
-    minor.v[6] = m0->v[13]; \
-    minor.v[7] = m0->v[14]; \
-    minor.v[8] = m0->v[15]; \
-    cofactor.v[8] = mat3##_char##_determinant(&minor); \
-    minor.v[0] = m0->v[0]; \
-    minor.v[1] = m0->v[2]; \
-    minor.v[2] = m0->v[3]; \
-    minor.v[3] = m0->v[4]; \
-    minor.v[4] = m0->v[6]; \
-    minor.v[5] = m0->v[7]; \
-    minor.v[6] = m0->v[12]; \
-    minor.v[7] = m0->v[14]; \
-    minor.v[8] = m0->v[15]; \
-    cofactor.v[9] = -mat3##_char##_determinant(&minor); \
-    minor.v[0] = m0->v[0]; \
-    minor.v[1] = m0->v[1]; \
-    minor.v[2] = m0->v[3]; \
-    minor.v[3] = m0->v[4]; \
-    minor.v[4] = m0->v[5]; \
-    minor.v[5] = m0->v[7]; \
-    minor.v[6] = m0->v[12]; \
-    minor.v[7] = m0->v[13]; \
-    minor.v[8] = m0->v[15]; \
-    cofactor.v[10] = mat3##_char##_determinant(&minor); \
-    minor.v[0] = m0->v[0]; \
-    minor.v[1] = m0->v[1]; \
-    minor.v[2] = m0->v[2]; \
-    minor.v[3] = m0->v[4]; \
-    minor.v[4] = m0->v[5]; \
-    minor.v[5] = m0->v[6]; \
-    minor.v[6] = m0->v[12]; \
-    minor.v[7] = m0->v[13]; \
-    minor.v[8] = m0->v[14]; \
-    cofactor.v[11] = -mat3##_char##_determinant(&minor); \
-    minor.v[0] = m0->v[1]; \
-    minor.v[1] = m0->v[2]; \
-    minor.v[2] = m0->v[3]; \
-    minor.v[3] = m0->v[5]; \
-    minor.v[4] = m0->v[6]; \
-    minor.v[5] = m0->v[7]; \
-    minor.v[6] = m0->v[9]; \
-    minor.v[7] = m0->v[10]; \
-    minor.v[8] = m0->v[11]; \
-    cofactor.v[12] = -mat3##_char##_determinant(&minor); \
-    minor.v[0] = m0->v[0]; \
-    minor.v[1] = m0->v[2]; \
-    minor.v[2] = m0->v[3]; \
-    minor.v[3] = m0->v[4]; \
-    minor.v[4] = m0->v[6]; \
-    minor.v[5] = m0->v[7]; \
-    minor.v[6] = m0->v[8]; \
-    minor.v[7] = m0->v[10]; \
-    minor.v[8] = m0->v[11]; \
-    cofactor.v[13] = mat3##_char##_determinant(&minor); \
-    minor.v[0] = m0->v[0]; \
-    minor.v[1] = m0->v[1]; \
-    minor.v[2] = m0->v[3]; \
-    minor.v[3] = m0->v[4]; \
-    minor.v[4] = m0->v[5]; \
-    minor.v[5] = m0->v[7]; \
-    minor.v[6] = m0->v[8]; \
-    minor.v[7] = m0->v[9]; \
-    minor.v[8] = m0->v[11]; \
-    cofactor.v[14] = -mat3##_char##_determinant(&minor); \
-    minor.v[0] = m0->v[0]; \
-    minor.v[1] = m0->v[1]; \
-    minor.v[2] = m0->v[2]; \
-    minor.v[3] = m0->v[4]; \
-    minor.v[4] = m0->v[5]; \
-    minor.v[5] = m0->v[6]; \
-    minor.v[6] = m0->v[8]; \
-    minor.v[7] = m0->v[9]; \
-    minor.v[8] = m0->v[10]; \
-    cofactor.v[15] = mat3##_char##_determinant(&minor); \
-    result->v[0] = cofactor.v[0]; \
-    result->v[1] = cofactor.v[1]; \
-    result->v[2] = cofactor.v[2]; \
-    result->v[3] = cofactor.v[3]; \
-    result->v[4] = cofactor.v[4]; \
-    result->v[5] = cofactor.v[5]; \
-    result->v[6] = cofactor.v[6]; \
-    result->v[7] = cofactor.v[7]; \
-    result->v[8] = cofactor.v[8]; \
-    result->v[9] = cofactor.v[9]; \
-    result->v[10] = cofactor.v[10]; \
-    result->v[11] = cofactor.v[11]; \
-    result->v[12] = cofactor.v[12]; \
-    result->v[13] = cofactor.v[13]; \
-    result->v[14] = cofactor.v[14]; \
-    result->v[15] = cofactor.v[15]; \
-    return result; \
+    minor.v[0] = m0.v[5]; \
+    minor.v[1] = m0.v[6]; \
+    minor.v[2] = m0.v[7]; \
+    minor.v[3] = m0.v[9]; \
+    minor.v[4] = m0.v[10]; \
+    minor.v[5] = m0.v[11]; \
+    minor.v[6] = m0.v[13]; \
+    minor.v[7] = m0.v[14]; \
+    minor.v[8] = m0.v[15]; \
+    cofactor.v[0] = mat3##_char##_determinant(minor); \
+    minor.v[0] = m0.v[4]; \
+    minor.v[1] = m0.v[6]; \
+    minor.v[2] = m0.v[7]; \
+    minor.v[3] = m0.v[8]; \
+    minor.v[4] = m0.v[10]; \
+    minor.v[5] = m0.v[11]; \
+    minor.v[6] = m0.v[12]; \
+    minor.v[7] = m0.v[14]; \
+    minor.v[8] = m0.v[15]; \
+    cofactor.v[1] = -mat3##_char##_determinant(minor); \
+    minor.v[0] = m0.v[4]; \
+    minor.v[1] = m0.v[5]; \
+    minor.v[2] = m0.v[7]; \
+    minor.v[3] = m0.v[8]; \
+    minor.v[4] = m0.v[9]; \
+    minor.v[5] = m0.v[11]; \
+    minor.v[6] = m0.v[12]; \
+    minor.v[7] = m0.v[13]; \
+    minor.v[8] = m0.v[15]; \
+    cofactor.v[2] = mat3##_char##_determinant(minor); \
+    minor.v[0] = m0.v[4]; \
+    minor.v[1] = m0.v[5]; \
+    minor.v[2] = m0.v[6]; \
+    minor.v[3] = m0.v[8]; \
+    minor.v[4] = m0.v[9]; \
+    minor.v[5] = m0.v[10]; \
+    minor.v[6] = m0.v[12]; \
+    minor.v[7] = m0.v[13]; \
+    minor.v[8] = m0.v[14]; \
+    cofactor.v[3] = -mat3##_char##_determinant(minor); \
+    minor.v[0] = m0.v[1]; \
+    minor.v[1] = m0.v[2]; \
+    minor.v[2] = m0.v[3]; \
+    minor.v[3] = m0.v[9]; \
+    minor.v[4] = m0.v[10]; \
+    minor.v[5] = m0.v[11]; \
+    minor.v[6] = m0.v[13]; \
+    minor.v[7] = m0.v[14]; \
+    minor.v[8] = m0.v[15]; \
+    cofactor.v[4] = -mat3##_char##_determinant(minor); \
+    minor.v[0] = m0.v[0]; \
+    minor.v[1] = m0.v[2]; \
+    minor.v[2] = m0.v[3]; \
+    minor.v[3] = m0.v[8]; \
+    minor.v[4] = m0.v[10]; \
+    minor.v[5] = m0.v[11]; \
+    minor.v[6] = m0.v[12]; \
+    minor.v[7] = m0.v[14]; \
+    minor.v[8] = m0.v[15]; \
+    cofactor.v[5] = mat3##_char##_determinant(minor); \
+    minor.v[0] = m0.v[0]; \
+    minor.v[1] = m0.v[1]; \
+    minor.v[2] = m0.v[3]; \
+    minor.v[3] = m0.v[8]; \
+    minor.v[4] = m0.v[9]; \
+    minor.v[5] = m0.v[11]; \
+    minor.v[6] = m0.v[12]; \
+    minor.v[7] = m0.v[13]; \
+    minor.v[8] = m0.v[15]; \
+    cofactor.v[6] = -mat3##_char##_determinant(minor); \
+    minor.v[0] = m0.v[0]; \
+    minor.v[1] = m0.v[1]; \
+    minor.v[2] = m0.v[2]; \
+    minor.v[3] = m0.v[8]; \
+    minor.v[4] = m0.v[9]; \
+    minor.v[5] = m0.v[10]; \
+    minor.v[6] = m0.v[12]; \
+    minor.v[7] = m0.v[13]; \
+    minor.v[8] = m0.v[14]; \
+    cofactor.v[7] = mat3##_char##_determinant(minor); \
+    minor.v[0] = m0.v[1]; \
+    minor.v[1] = m0.v[2]; \
+    minor.v[2] = m0.v[3]; \
+    minor.v[3] = m0.v[5]; \
+    minor.v[4] = m0.v[6]; \
+    minor.v[5] = m0.v[7]; \
+    minor.v[6] = m0.v[13]; \
+    minor.v[7] = m0.v[14]; \
+    minor.v[8] = m0.v[15]; \
+    cofactor.v[8] = mat3##_char##_determinant(minor); \
+    minor.v[0] = m0.v[0]; \
+    minor.v[1] = m0.v[2]; \
+    minor.v[2] = m0.v[3]; \
+    minor.v[3] = m0.v[4]; \
+    minor.v[4] = m0.v[6]; \
+    minor.v[5] = m0.v[7]; \
+    minor.v[6] = m0.v[12]; \
+    minor.v[7] = m0.v[14]; \
+    minor.v[8] = m0.v[15]; \
+    cofactor.v[9] = -mat3##_char##_determinant(minor); \
+    minor.v[0] = m0.v[0]; \
+    minor.v[1] = m0.v[1]; \
+    minor.v[2] = m0.v[3]; \
+    minor.v[3] = m0.v[4]; \
+    minor.v[4] = m0.v[5]; \
+    minor.v[5] = m0.v[7]; \
+    minor.v[6] = m0.v[12]; \
+    minor.v[7] = m0.v[13]; \
+    minor.v[8] = m0.v[15]; \
+    cofactor.v[10] = mat3##_char##_determinant(minor); \
+    minor.v[0] = m0.v[0]; \
+    minor.v[1] = m0.v[1]; \
+    minor.v[2] = m0.v[2]; \
+    minor.v[3] = m0.v[4]; \
+    minor.v[4] = m0.v[5]; \
+    minor.v[5] = m0.v[6]; \
+    minor.v[6] = m0.v[12]; \
+    minor.v[7] = m0.v[13]; \
+    minor.v[8] = m0.v[14]; \
+    cofactor.v[11] = -mat3##_char##_determinant(minor); \
+    minor.v[0] = m0.v[1]; \
+    minor.v[1] = m0.v[2]; \
+    minor.v[2] = m0.v[3]; \
+    minor.v[3] = m0.v[5]; \
+    minor.v[4] = m0.v[6]; \
+    minor.v[5] = m0.v[7]; \
+    minor.v[6] = m0.v[9]; \
+    minor.v[7] = m0.v[10]; \
+    minor.v[8] = m0.v[11]; \
+    cofactor.v[12] = -mat3##_char##_determinant(minor); \
+    minor.v[0] = m0.v[0]; \
+    minor.v[1] = m0.v[2]; \
+    minor.v[2] = m0.v[3]; \
+    minor.v[3] = m0.v[4]; \
+    minor.v[4] = m0.v[6]; \
+    minor.v[5] = m0.v[7]; \
+    minor.v[6] = m0.v[8]; \
+    minor.v[7] = m0.v[10]; \
+    minor.v[8] = m0.v[11]; \
+    cofactor.v[13] = mat3##_char##_determinant(minor); \
+    minor.v[0] = m0.v[0]; \
+    minor.v[1] = m0.v[1]; \
+    minor.v[2] = m0.v[3]; \
+    minor.v[3] = m0.v[4]; \
+    minor.v[4] = m0.v[5]; \
+    minor.v[5] = m0.v[7]; \
+    minor.v[6] = m0.v[8]; \
+    minor.v[7] = m0.v[9]; \
+    minor.v[8] = m0.v[11]; \
+    cofactor.v[14] = -mat3##_char##_determinant(minor); \
+    minor.v[0] = m0.v[0]; \
+    minor.v[1] = m0.v[1]; \
+    minor.v[2] = m0.v[2]; \
+    minor.v[3] = m0.v[4]; \
+    minor.v[4] = m0.v[5]; \
+    minor.v[5] = m0.v[6]; \
+    minor.v[6] = m0.v[8]; \
+    minor.v[7] = m0.v[9]; \
+    minor.v[8] = m0.v[10]; \
+    cofactor.v[15] = mat3##_char##_determinant(minor); \
+    return cofactor; \
 }
 
 M_GEN_IMPL_cofactor(mat4,f);
@@ -2656,30 +2579,27 @@ M_GEN_IMPL_translate(mat4,d);
 #ifdef M_GEN_mat4_look_at
 #define M_GEN_IMPL_mat4_look_at(_char) \
 M_GEN_mat4_look_at(_char){ \
-    struct vec3##_char tmp_forward = *target; \
-    struct vec3##_char tmp_side; \
-    struct vec3##_char tmp_up; \
-    vec3##_char##_subtract(&tmp_forward, position); \
-    vec3##_char##_normalize(&tmp_forward); \
-    vec3##_char##_cross(&tmp_side, &tmp_forward, up); \
-    vec3##_char##_normalize(&tmp_side); \
-    vec3##_char##_cross(&tmp_up, &tmp_side, &tmp_forward); \
-    result->v[0] = tmp_side.v[0]; \
-    result->v[1] = tmp_up.v[0]; \
-    result->v[2] = -tmp_forward.v[0]; \
-    result->v[3] = (m##_char##_t)(0.0); \
-    result->v[4] = tmp_side.v[1]; \
-    result->v[5] = tmp_up.v[1]; \
-    result->v[6] = -tmp_forward.v[1]; \
-    result->v[7] = (m##_char##_t)(0.0); \
-    result->v[8] = tmp_side.v[2]; \
-    result->v[9] = tmp_up.v[2]; \
-    result->v[10] = -tmp_forward.v[2]; \
-    result->v[11] = (m##_char##_t)(0.0); \
-    result->v[12] = -vec3##_char##_dot(&tmp_side, position); \
-    result->v[13] = -vec3##_char##_dot(&tmp_up, position); \
-    result->v[14] = vec3##_char##_dot(&tmp_forward, position); \
-    result->v[15] = (m##_char##_t)(1.0); \
+    struct vec3##_char tmp_forward = vec3##_char##_normalize( vec3##_char##_subtract(target, position) ); \
+    struct vec3##_char tmp_side = vec3##_char##_normalize( vec3##_char##_cross(tmp_forward, up) ); \
+    struct vec3##_char tmp_up = vec3##_char##_cross(tmp_side, tmp_forward); \
+    struct mat4##_char result; \
+    \
+    result.v[0] = tmp_side.v[0]; \
+    result.v[1] = tmp_up.v[0]; \
+    result.v[2] = -tmp_forward.v[0]; \
+    result.v[3] = (m##_char##_t)(0.0); \
+    result.v[4] = tmp_side.v[1]; \
+    result.v[5] = tmp_up.v[1]; \
+    result.v[6] = -tmp_forward.v[1]; \
+    result.v[7] = (m##_char##_t)(0.0); \
+    result.v[8] = tmp_side.v[2]; \
+    result.v[9] = tmp_up.v[2]; \
+    result.v[10] = -tmp_forward.v[2]; \
+    result.v[11] = (m##_char##_t)(0.0); \
+    result.v[12] = -vec3##_char##_dot(tmp_side, position); \
+    result.v[13] = -vec3##_char##_dot(tmp_up, position); \
+    result.v[14] = vec3##_char##_dot(tmp_forward, position); \
+    result.v[15] = (m##_char##_t)(1.0); \
     return result; \
 }
 
@@ -2690,22 +2610,23 @@ M_GEN_IMPL_mat4_look_at(d);
 #ifdef M_GEN_ortho
 #define M_GEN_IMPL_ortho(_s,_char) \
 M_GEN_ortho(_s,_char){ \
-    result->v[0] = (m##_char##_t)(2.0) / (r - l); \
-    result->v[1] = (m##_char##_t)(0.0); \
-    result->v[2] = (m##_char##_t)(0.0); \
-    result->v[3] = (m##_char##_t)(0.0); \
-    result->v[4] = (m##_char##_t)(0.0); \
-    result->v[5] = (m##_char##_t)(2.0) / (t - b); \
-    result->v[6] = (m##_char##_t)(0.0); \
-    result->v[7] = (m##_char##_t)(0.0); \
-    result->v[8] = (m##_char##_t)(0.0); \
-    result->v[9] = (m##_char##_t)(0.0); \
-    result->v[10] = -(m##_char##_t)(2.0) / (f - n); \
-    result->v[11] = (m##_char##_t)(0.0); \
-    result->v[12] = -((r + l) / (r - l)); \
-    result->v[13] = -((t + b) / (t - b)); \
-    result->v[14] = -((f + n) / (f - n)); \
-    result->v[15] = (m##_char##_t)(1.0); \
+    struct _s##_char result; \
+    result.v[0] = (m##_char##_t)(2.0) / (r - l); \
+    result.v[1] = (m##_char##_t)(0.0); \
+    result.v[2] = (m##_char##_t)(0.0); \
+    result.v[3] = (m##_char##_t)(0.0); \
+    result.v[4] = (m##_char##_t)(0.0); \
+    result.v[5] = (m##_char##_t)(2.0) / (t - b); \
+    result.v[6] = (m##_char##_t)(0.0); \
+    result.v[7] = (m##_char##_t)(0.0); \
+    result.v[8] = (m##_char##_t)(0.0); \
+    result.v[9] = (m##_char##_t)(0.0); \
+    result.v[10] = -(m##_char##_t)(2.0) / (f - n); \
+    result.v[11] = (m##_char##_t)(0.0); \
+    result.v[12] = -((r + l) / (r - l)); \
+    result.v[13] = -((t + b) / (t - b)); \
+    result.v[14] = -((f + n) / (f - n)); \
+    result.v[15] = (m##_char##_t)(1.0); \
     return result; \
 }
 
@@ -2803,8 +2724,8 @@ M_GEN_IMPL_perspective_infinite(mat4,d);
 #define M_GEN_IMPL_rect_extend \
 M_GEN_rect_extend { \
     struct vec3i vct = {f,f,f}; \
-    vec3i_subtract(&result->min, &vct); \
-    vec3i_add(&result->max, &vct); \
+    vec3i_subtract(result->min, vct); \
+    vec3i_add(result->max, vct); \
     return result; \
 }
 
@@ -2814,12 +2735,10 @@ M_GEN_IMPL_rect_extend;
 #ifdef M_GEN_triface_calc_norm
 #define M_GEN_IMPL_triface_calc_norm(_char) \
 M_GEN_triface_calc_norm(_char) { \
-    struct vec3##_char tmp_v1 = t0->p[0]; \
-    struct vec3##_char tmp_v2 = t0->p[1]; \
-    vec3##_char##_subtract(&tmp_v1, &t0->p[1]); \
-    vec3##_char##_subtract(&tmp_v2, &t0->p[2]); \
-    vec3##_char##_cross(&tmp_v1, &tmp_v1, &tmp_v2); \
-    t0->normal = *VEC3_CAST(d,&tmp_v1); \
+    struct vec3##_char tmp_v1 = vec3##_char##_subtract(t0->p[0], t0->p[1]); \
+    struct vec3##_char tmp_v2 = vec3##_char##_subtract(t0->p[1], t0->p[2]); \
+    \
+    t0->normal = VEC3_CAST(d,vec3##_char##_cross(tmp_v1, tmp_v2)); \
     return t0; \
 }
 
@@ -2868,7 +2787,7 @@ bool calc_horizon(
     )
 {
     cvector_iterator(int) plane;
-    double dist =  triface3i_distance_vec3i( &plane_storage[current_plane].triface, eye_point);
+    double dist =  triface3i_distance_vec3i( plane_storage[current_plane].triface, *eye_point);
 
     if( dist > 0){
         cvector_push_back(visited_planes, current_plane);
@@ -2977,12 +2896,11 @@ M_GEN_convex_hull_update {
             continue;
         }
 
-        struct vec3i dir = *start_points[1];
-        vec3i_subtract(&dir, start_points[0]);
+        struct vec3i dir = vec3i_subtract(*start_points[1], *start_points[0]);
         error_code = 0;
         errorcb_t old_callback = error_callback;
         error_callback = NULL;
-        double dist = line3i_distance_squared_vec3i(&(struct line3i){.direction = *VEC3_CAST(d,&dir), .point=*start_points[0]}, point);
+        double dist = line3i_distance_squared_vec3i((struct line3i){.direction = VEC3_CAST(d,dir), .point=*start_points[0]}, *point);
         error_callback = old_callback;
 
         if(error_code){continue;}
@@ -3008,7 +2926,7 @@ M_GEN_convex_hull_update {
     // Fourth point
     max_dist = 0;
     cvector_for_each_in(point, (cvector_vector_type(struct vec3i))points){
-        double dist = triface3i_distance_vec3i(&cp->triface, point);
+        double dist = triface3i_distance_vec3i(cp->triface, *point);
         if ( fabs(dist) > max_dist ){
             max_dist = dist;
             start_points[3] = point;
@@ -3045,18 +2963,17 @@ M_GEN_convex_hull_update {
     cvector_for_each_in(stored_plane, plane_storage){
         // Correct normals
         for (int pi = 0; pi < 4; pi++){
-            struct vec3i tmp_v = *start_points[pi];
-            vec3i_subtract(&tmp_v, &stored_plane->triface.p[0]);
+            struct vec3i tmp_v = vec3i_subtract(*start_points[pi], stored_plane->triface.p[0]);
             struct vec3d tmp_vf = {.x=tmp_v.x, .y=tmp_v.y, .z=tmp_v.z};
-            double dist = vec3d_dot(&stored_plane->triface.normal, &tmp_vf);
+            double dist = vec3d_dot(stored_plane->triface.normal, tmp_vf);
             if(dist > 0){
-                vec3d_multiply_num(&stored_plane->triface.normal, -1);
+                stored_plane->triface.normal = vec3d_multiply_num(stored_plane->triface.normal, -1);
             }
         }
 
         // Find all outside points
         cvector_for_each_in(point, (cvector_vector_type(struct vec3i))points){
-            double dist = triface3i_distance_vec3i(&stored_plane->triface, point);
+            double dist = triface3i_distance_vec3i(stored_plane->triface, *point);
 
             if (dist > 0){
                 cvector_push_back(stored_plane->outside_points,*point);
@@ -3093,7 +3010,7 @@ M_GEN_convex_hull_update {
                 struct vec3i eye_point;
                 max_dist = 0;
                 cvector_for_each_in(point, plane_storage[*plane].outside_points){
-                    double dist = triface3i_distance_vec3i(&plane_storage[*plane].triface, point);
+                    double dist = triface3i_distance_vec3i(plane_storage[*plane].triface, *point);
                     if(dist > max_dist){
                         max_dist = dist;
                         eye_point = *point;
@@ -3131,19 +3048,18 @@ M_GEN_convex_hull_update {
 
                     // Correct normal new plane
                     for (int pi = 0; pi < 4; pi++){
-                        struct vec3i tmp_v = *start_points[pi];
-                        vec3i_subtract(&tmp_v, &new_plane->triface.p[0]);
+                        struct vec3i tmp_v = vec3i_subtract(*start_points[pi], new_plane->triface.p[0]);
                         struct vec3d tmp_vf = {.x=tmp_v.x, .y=tmp_v.y, .z=tmp_v.z};
-                        double dist = vec3d_dot(&new_plane->triface.normal, &tmp_vf);
+                        double dist = vec3d_dot(new_plane->triface.normal, tmp_vf);
                         if(dist > 0){
-                            vec3d_multiply_num(&new_plane->triface.normal, -1);
+                            new_plane->triface.normal = vec3d_multiply_num(new_plane->triface.normal, -1);
                         }
                     }
 
                     // Find all outside points for new plane
                     cvector_for_each_in(visited_plane, visited_planes){
                         cvector_for_each_in(point, plane_storage[*visited_plane].outside_points){
-                            double dist = triface3i_distance_vec3i(&new_plane->triface, point);
+                            double dist = triface3i_distance_vec3i(new_plane->triface, *point);
                             if (dist > 0){
                                 cvector_push_back(new_plane->outside_points,*point);
                             }
@@ -3180,7 +3096,7 @@ M_GEN_convex_hull_update {
 M_GEN_vec_inside_convex_hull {
     cvector_iterator(struct triface3i) it;
     cvector_for_each_in(it, c0->tris){
-        double dist = triface3i_distance_vec3i(it, v0);
+        double dist = triface3i_distance_vec3i(*it, *v0);
         if(dist > 0){
             return false;
         }

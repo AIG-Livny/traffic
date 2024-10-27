@@ -47,7 +47,7 @@ def config() -> list["mapyr.ProjectConfig"]:
 
     # Debug
     debug = copy.deepcopy(default)
-    debug.CFLAGS    = ["-g","-O0"]
+    debug.CFLAGS    = ["-g","-Ofast"]
     debug.GROUPS = ['DEBUG']
     debug.DEFINES += ['DEBUG']
 

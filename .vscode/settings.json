@@ -59,6 +59,7 @@
         "stdint.h": "c",
         "nuklear_internal.h": "c",
         "unistd.h": "c",
-        "limits.h": "c"
+        "limits.h": "c",
+        "iso646.h": "c"
     }
 }

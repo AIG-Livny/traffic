@@ -20,6 +20,7 @@ void g_init(){
     su_load_shader(&line_shader, "shaders/line");
     su_load_shader(&arc_shader, "shaders/arc");
     su_load_shader(&dot_shader, "shaders/dot");
+    su_load_shader(&segment_array_shader, "shaders/segment_array");
     su_load_shader(&test_shader, "shaders/test");
 }
 
@@ -73,6 +74,19 @@ void g_camera_zoom(struct g_camera* cam, double delta){
     cam->zoom += delta;
     g_camera_update_matrices(cam);
 }
+
+void g_camera_zoom_screen_position(struct g_camera* cam, double delta, struct vec2i pos){
+    struct vec2i half_viewport  = vec2i_divide_num(cam->viewport_size,2);
+    struct vec2i window_pos     = vec2i_subtract(pos, half_viewport);
+    struct vec4f pos_viewport   = {window_pos.x/(float)half_viewport.x, -window_pos.y/(float)half_viewport.y, 0,1};
+
+    struct vec4f old_world_pos  = mat4f_multiply_vec4f(cam->unproject,pos_viewport);
+    g_camera_zoom(cam, delta);
+    struct vec4f new_world_pos  = mat4f_multiply_vec4f(cam->unproject,pos_viewport);
+
+    g_camera_move(cam, VEC2_CAST(d,vec4f_subtract(old_world_pos, new_world_pos)));
+}
+
 
 double g_camera_get_zoom(const struct g_camera* cam){
     return cam->zoom;
@@ -342,6 +356,11 @@ struct g_gpu_object* g_add_segment_array_strip(struct g_manager* man, struct g_s
 
 struct g_gpu_object* g_add_segment_array(struct g_manager* man, struct g_segment_array* line_array){
     return g_add_array0(man,line_array,&man->segment_arrays);
+}
+
+void g_segment_array_load_matrix(struct g_gpu_object* obj, const struct mat4f* matrix){
+    glBindBuffer(GL_ARRAY_BUFFER, obj->vertex_buffer_object);
+    glBufferSubData(GL_ARRAY_BUFFER, offsetof(struct g_segment_array,transform), sizeof(struct mat4f), matrix);
 }
 
 struct g_gpu_object* g_add_test(struct g_manager* man, struct g_test* test){

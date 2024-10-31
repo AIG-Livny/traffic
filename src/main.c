@@ -17,6 +17,8 @@
 struct g_camera* cam;
 bool pan = false;
 struct nk_context *ctx;
+double oldx;
+double oldy;
 
 void keyboard( GLFWwindow* window, int key, int scancode, int action, int mods ) {
     if ( key == GLFW_KEY_ESCAPE && action == GLFW_PRESS ) {
@@ -28,7 +30,8 @@ void scroll( GLFWwindow* window, double xoffset, double yoffset ) {
     if ( nk_item_is_any_active(ctx) ) {
         nk_gflw3_scroll_callback(window,xoffset,yoffset);
     } else {
-        g_camera_zoom( cam, -yoffset * g_camera_get_zoom(cam) * 0.04);
+        //g_camera_zoom( cam, -yoffset * g_camera_get_zoom(cam) * 0.04);
+        g_camera_zoom_screen_position(cam, -yoffset * g_camera_get_zoom(cam) * 0.04, (struct vec2i){oldx,oldy});
     }
 }
 
@@ -46,9 +49,6 @@ void mouse_button(GLFWwindow* window, int button, int action, int mods) {
     }
 }
 
-double oldx;
-double oldy;
-
 void cursor_pos(GLFWwindow* window, double xpos, double ypos){
     double zoom = g_camera_get_zoom(cam);
     if ( pan ) {
@@ -61,14 +61,6 @@ void cursor_pos(GLFWwindow* window, double xpos, double ypos){
 void error_callback( int error, const char* description ) {
     fputs( description, stderr );
 }
-
-struct car {
-
-};
-
-struct road {
-    cvector_vec2d points;
-};
 
 double sfps = 0;
 
@@ -196,8 +188,8 @@ int main( int argc, char **argv ) {
     g_add_arc(man,&(struct g_arc){
         .pos    = {-100,-100},
         .radius = 62,
-        .start_degree = M_PI_4,
-        .end_degree = (2*M_PI) - M_PI_4,
+        .start_degree = MdPI_4,
+        .end_degree = (2*MdPI) - MdPI_4,
         .color = {0,0,0.5,1},
         .line_type = g_ltSOLID,
         .width = 2,
@@ -206,8 +198,8 @@ int main( int argc, char **argv ) {
     g_add_arc(man,&(struct g_arc){
         .pos    = {-100,-100},
         .radius = 70,
-        .start_degree = -M_PI_4,
-        .end_degree = M_PI + M_PI_4,
+        .start_degree = -MdPI_4,
+        .end_degree = MdPI + MdPI_4,
         .color = {0,0.3,0.5,1},
         .line_type = g_ltDOTDASH,
         .width = 3,
@@ -241,47 +233,41 @@ int main( int argc, char **argv ) {
         .size = 4
     });
 
-    struct road road = {};
+    // ROAD
+    cvector(struct vec2d) road_points;
 
-    cvector_push_back(road.points, ((struct vec2d){.x=-100, .y=-100}));
-    cvector_push_back(road.points, ((struct vec2d){.x=-50,  .y=0}));
-    cvector_push_back(road.points, ((struct vec2d){.x=100,  .y=100}));
-    cvector_push_back(road.points, ((struct vec2d){.x=200,  .y=50}));
-    cvector_push_back(road.points, ((struct vec2d){.x=250,  .y=10}));
+    cvector_push_back(road_points, ((struct vec2d){.x=-100, .y=-100}));
+    cvector_push_back(road_points, ((struct vec2d){.x=-50,  .y=0}));
+    cvector_push_back(road_points, ((struct vec2d){.x=100,  .y=100}));
+    cvector_push_back(road_points, ((struct vec2d){.x=200,  .y=50}));
+    cvector_push_back(road_points, ((struct vec2d){.x=250,  .y=10}));
 
     struct mat4f tr;
     mat4f_identity(&tr);
     tr.m14 = 0;
     tr.m24 = 0;
 
-    g_add_segment_array_strip(man,&(struct g_segment_array){
+    struct g_gpu_object* obj = g_add_segment_array_strip(man,&(struct g_segment_array){
         .transform = tr,
         .line_type = g_ltSOLID,
         .color = {1,0,0,1},
         .width = 1,
-        .vertices = road.points
+        .vertices = road_points
     });
+    // END ROAD
 
-    g_add_test(man,&(struct g_test){
-        .p1 = {-100,100},
-        .p2 = {100,-100},
-        .color = {1,0,1,1.0},
-        .line_type = g_ltDOTDASH,
-        .width = 10.0f
-    });
+    // CAR
+    cvector(struct vec2d) car_vertices;
 
-    /*
-    cvector(struct vec2d) new_points = NULL;
-    line_array2d_equidistant(&new_points, vertices, 1);
+    cvector_push_back(car_vertices, ((struct vec2d){.x=-100, .y=-100}));
+    cvector_push_back(car_vertices, ((struct vec2d){.x=-50,  .y=0}));
+    cvector_push_back(car_vertices, ((struct vec2d){.x=100,  .y=100}));
+    cvector_push_back(car_vertices, ((struct vec2d){.x=200,  .y=50}));
+    cvector_push_back(car_vertices, ((struct vec2d){.x=250,  .y=10}));
 
-    g_add_segment_array_strip(man,&(struct g_segment_array){
-        .transform = tr,
-        .line_type = g_ltSOLID,
-        .color = {1,1,0,1},
-        .width = 1,
-        .vertices = new_points
-    });
-    */
+
+
+    // END CAR
 
     // NUKLEAR
     ctx = nk_glfw3_init(window, NK_GLFW3_DEFAULT);
@@ -307,9 +293,10 @@ int main( int argc, char **argv ) {
     char sfps_buf[16];
     double previousTime = glfwGetTime();
     int frameCount = 0;
+    double ff = 0;
 
     while ( not glfwWindowShouldClose( window ) ) {
-        glfwWaitEvents();
+        //glfwWaitEvents();
 
         frameCount++;
         double currentTime = glfwGetTime();
@@ -325,6 +312,14 @@ int main( int argc, char **argv ) {
 
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         glEnable(GL_BLEND);
+
+        /*
+        ff += 0.01;
+        mat4f_rotation_z(&tr, ff);
+
+        g_segment_array_load_matrix(obj, &tr);
+        */
+
         g_draw(man, cam);
 
         // NUKLEAR
@@ -342,9 +337,61 @@ int main( int argc, char **argv ) {
         nk_glfw3_render(NK_ANTI_ALIASING_ON, 512 * 1024, 128 * 1024);
         // END NUKLEAR
 
+        glfwPollEvents();
         glfwSwapBuffers( window );
     }
     //pthread_exit(NULL);
     g_camera_free(cam);
     return EXIT_SUCCESS;
 }
+
+/*
+Ты абсолютно прав, нельзя одновременно загружать данные в GPU (uniform или атрибуты) и давать команду на отрисовку. OpenGL работает синхронно, то есть каждая команда выполняется по очереди, и пока одна команда выполняется, следующая не начнётся.
+
+Разграничение загрузки и отрисовки в многопоточном приложении:
+
+1. Асинхронная загрузка данных:
+
+   * Используй glBufferData() с флагом GL_STREAM_DRAW или GL_DYNAMIC_DRAW.
+   * Эти флаги позволяют OpenGL создавать отдельные буферы для данных, которые часто обновляются.
+   * Создай отдельный поток, который будет заполнять эти буферы.
+   * Используй glMapBuffer() и glUnmapBuffer() для безопасного доступа к данным в буфере из другого потока.
+   * Важно: После обновления данных буфера, вызови glFlush() или glFinish(), чтобы гарантировать, что данные были скопированы в GPU.
+
+2. Ожидание завершения загрузки:
+
+   * Перед вызовом glDrawArrays() или glDrawElements(), проверь, что данные были скопированы в GPU.
+   * Используй glFenceSync() и glClientWaitSync() для синхронизации между потоками.
+   * glFenceSync() создает объект синхронизации, который отмечает момент завершения загрузки.
+   * glClientWaitSync() позволяет потоку ожидать завершения загрузки перед продолжением отрисовки.
+
+Пример:
+
+// В отдельном потоке
+void load_data_thread(void) {
+    // Обновление данных
+    ...
+
+    // Загрузка данных в буфер
+    glBindBuffer(GL_ARRAY_BUFFER, data_buffer);
+    glBufferData(GL_ARRAY_BUFFER, data_size, data, GL_STREAM_DRAW);
+
+    // Синхронизация с главным потоком
+    glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+}
+
+// В главном потоке
+void render_loop(void) {
+    // Запуск потока загрузки
+    pthread_create(&data_thread, NULL, load_data_thread, NULL);
+
+    // Ожидание завершения загрузки
+    glClientWaitSync(sync_object, 0, GL_TIMEOUT_IGNORED);
+
+    // Отрисовка
+    glDrawArrays(...);
+
+    // Освобождение синхронизации
+    glDeleteSync(sync_object);
+}
+*/

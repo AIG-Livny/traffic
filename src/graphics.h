@@ -79,6 +79,7 @@ struct g_camera* g_camera_create(struct vec2i* viewport_size);
 void g_camera_free(struct g_camera* cam);
 void g_camera_move(struct g_camera* cam, struct vec2d delta);
 void g_camera_zoom(struct g_camera* cam, double delta);
+void g_camera_zoom_screen_position(struct g_camera* cam, double delta, struct vec2i pos);
 double g_camera_get_zoom(const struct g_camera* cam);
 
 struct g_manager* g_manager_create();
@@ -90,6 +91,7 @@ struct g_gpu_object* g_add_arc(struct g_manager* man, struct g_arc* arc);
 struct g_gpu_object* g_add_dot(struct g_manager* man, struct g_dot* dot);
 struct g_gpu_object* g_add_segment_array_strip(struct g_manager* man, struct g_segment_array* line_array);
 struct g_gpu_object* g_add_segment_array(struct g_manager* man, struct g_segment_array* line_array);
+void g_segment_array_load_matrix(struct g_gpu_object* obj, const struct mat4f* matrix);
 struct g_gpu_object* g_add_test(struct g_manager* man, struct g_test* test);
 void g_draw(struct g_manager* man, struct g_camera* cam);
 

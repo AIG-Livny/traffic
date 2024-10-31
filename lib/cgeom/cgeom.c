@@ -826,18 +826,42 @@ M_GEN_IMPL_cross(vec3,f);
 M_GEN_IMPL_cross(vec3,d);
 #endif
 
-#ifdef M_GEN_multiply_mat2
-#define M_GEN_IMPL_multiply_mat2(_s,_char) \
-M_GEN_multiply_mat2(_s,_char){ \
-    m##_char##_t x = v0[0]; \
-    m##_char##_t y = v0[1]; \
-    result->v[0] = m0->v[0] * x + m0->v[2] * y; \
-    result->v[1] = m0->v[1] * x + m0->v[3] * y; \
-    return result; \
+#ifdef M_GEN_mat_multiply
+#define M_GEN_IMPL_mat2_multiply(_mat,_vec,_char) \
+M_GEN_mat_multiply(_mat,_vec,_char){ \
+    return (struct _vec##_char){ \
+        m0.m11 * v0.x + m0.m12 * v0.y, \
+        m0.m21 * v0.x + m0.m22 * v0.y, \
+    }; \
 }
 
-M_GEN_multiply_mat2(vec2,f);
-M_GEN_multiply_mat2(vec2,d);
+M_GEN_IMPL_mat2_multiply(mat2,vec2,f);
+M_GEN_IMPL_mat2_multiply(mat2,vec2,d);
+
+#define M_GEN_IMPL_mat3_multiply(_mat,_vec,_char) \
+M_GEN_mat_multiply(_mat,_vec,_char){ \
+    return (struct _vec##_char){ \
+        m0.m11 * v0.x + m0.m12 * v0.y + m0.m13 * v0.z, \
+        m0.m21 * v0.x + m0.m22 * v0.y + m0.m23 * v0.z, \
+        m0.m32 * v0.x + m0.m32 * v0.y + m0.m33 * v0.z, \
+    }; \
+}
+
+M_GEN_IMPL_mat3_multiply(mat3,vec3,f);
+M_GEN_IMPL_mat3_multiply(mat3,vec3,d);
+
+#define M_GEN_IMPL_mat4_multiply(_mat,_vec,_char) \
+M_GEN_mat_multiply(_mat,_vec,_char){ \
+    return (struct _vec##_char){ \
+        m0.m11 * v0.x + m0.m12 * v0.y + m0.m13 * v0.z + m0.m14 * v0.w, \
+        m0.m21 * v0.x + m0.m22 * v0.y + m0.m23 * v0.z + m0.m24 * v0.w, \
+        m0.m31 * v0.x + m0.m32 * v0.y + m0.m33 * v0.z + m0.m34 * v0.w, \
+        m0.m41 * v0.x + m0.m42 * v0.y + m0.m43 * v0.z + m0.m44 * v0.w, \
+    }; \
+}
+
+M_GEN_IMPL_mat4_multiply(mat4,vec4,f);
+M_GEN_IMPL_mat4_multiply(mat4,vec4,d);
 #endif
 
 #ifdef M_GEN_floor
@@ -1372,41 +1396,6 @@ M_GEN_vec3_linear_independent(_char) {  \
 
 M_GEN_IMPL_vec3_linear_independent(f)
 M_GEN_IMPL_vec3_linear_independent(d)
-#endif
-
-
-#ifdef M_GEN_multiply_mat3
-#define M_GEN_IMPL_multiply_mat3(_s,_char) \
-M_GEN_multiply_mat3(_s,_char) { \
-    m##_char##_t x = v0->v[0]; \
-    m##_char##_t y = v0->v[1]; \
-    m##_char##_t z = v0->v[2]; \
-    result->v[0] = m0->v[0] * x + m0->v[3] * y + m0->v[6] * z; \
-    result->v[1] = m0->v[1] * x + m0->v[4] * y + m0->v[7] * z; \
-    result->v[2] = m0->v[2] * x + m0->v[5] * y + m0->v[8] * z; \
-    return result; \
-}
-
-M_GEN_IMPL_multiply_mat3(vec3,f);
-M_GEN_IMPL_multiply_mat3(vec3,d);
-#endif
-
-#ifdef M_GEN_multiply_mat4
-#define M_GEN_IMPL_multiply_mat4(_s,_char) \
-M_GEN_multiply_mat4(_s,_char) { \
-    m##_char##_t x = v0->v[0]; \
-    m##_char##_t y = v0->v[1]; \
-    m##_char##_t z = v0->v[2]; \
-    m##_char##_t w = v0->v[3]; \
-    result->v[0] = m0->v[0] * x + m0->v[4] * y + m0->v[8] * z + m0->v[12] * w; \
-    result->v[1] = m0->v[1] * x + m0->v[5] * y + m0->v[9] * z + m0->v[13] * w; \
-    result->v[2] = m0->v[2] * x + m0->v[6] * y + m0->v[10] * z + m0->v[14] * w; \
-    result->v[3] = m0->v[3] * x + m0->v[7] * y + m0->v[11] * z + m0->v[15] * w; \
-    return result; \
-}
-
-M_GEN_IMPL_multiply_mat4(vec4,f);
-M_GEN_IMPL_multiply_mat4(vec4,d);
 #endif
 
 #ifdef M_GEN_null
@@ -2279,111 +2268,50 @@ M_GEN_IMPL_mat4_scale(mat,4,f);
 M_GEN_IMPL_mat4_scale(mat,4,d);
 #endif
 
-#ifdef M_GEN_rotation_x
-#define M_GEN_IMPL_mat3_rotation_x(_s,_char) \
-M_GEN_rotation_x(_s,_char){ \
+#ifdef M_GEN_set_rotation
+
+#define M_GEN_IMPL_set_rotation(_s,_axis,_char, _e1, _e2, _e3, _e4) \
+M_GEN_set_rotation(_s,_axis,_char){ \
     m##_char##_t c = M##_char##COS(f); \
     m##_char##_t s = M##_char##SIN(f); \
-    result->v[4] = c; \
-    result->v[5] = s; \
-    result->v[7] = -s; \
-    result->v[8] = c; \
-    return result; \
+    m0._e1 = c; \
+    m0._e2 = s; \
+    m0._e3 = -s; \
+    m0._e4 = c; \
+    return m0; \
 }
 
-M_GEN_IMPL_mat3_rotation_x(mat3,f);
-M_GEN_IMPL_mat3_rotation_x(mat3,d);
+M_GEN_IMPL_set_rotation(mat2,z,f,  m11,m21,m12,m22);
+M_GEN_IMPL_set_rotation(mat2,z,d,  m11,m21,m12,m22);
 
-#define M_GEN_IMPL_mat4_rotation_x(_s,_char) \
-M_GEN_rotation_x(_s,_char){ \
-    m##_char##_t c = M##_char##COS(f); \
-    m##_char##_t s = M##_char##SIN(f); \
-    result->v[5] = c; \
-    result->v[6] = s; \
-    result->v[9] = -s; \
-    result->v[10] = c; \
-    return result; \
-}
+M_GEN_IMPL_set_rotation(mat3,x,f,  m22,m32,m23,m33);
+M_GEN_IMPL_set_rotation(mat3,x,d,  m22,m32,m23,m33);
+M_GEN_IMPL_set_rotation(mat3,y,f,  m11,m31,m13,m33);
+M_GEN_IMPL_set_rotation(mat3,y,d,  m11,m31,m13,m33);
+M_GEN_IMPL_set_rotation(mat3,z,f,  m11,m21,m12,m22);
+M_GEN_IMPL_set_rotation(mat3,z,d,  m11,m21,m12,m22);
 
-M_GEN_IMPL_mat4_rotation_x(mat4,f);
-M_GEN_IMPL_mat4_rotation_x(mat4,d);
+M_GEN_IMPL_set_rotation(mat4,x,f,  m22,m32,m23,m33);
+M_GEN_IMPL_set_rotation(mat4,x,d,  m22,m32,m23,m33);
+M_GEN_IMPL_set_rotation(mat4,y,f,  m11,m31,m13,m33);
+M_GEN_IMPL_set_rotation(mat4,y,d,  m11,m31,m13,m33);
+M_GEN_IMPL_set_rotation(mat4,z,f,  m11,m21,m12,m22);
+M_GEN_IMPL_set_rotation(mat4,z,d,  m11,m21,m12,m22);
+
 #endif
 
-#ifdef M_GEN_rotation_y
-#define M_GEN_IMPL_mat3_rotation_y(_s,_char) \
-M_GEN_rotation_y(_s,_char){ \
-    m##_char##_t c = M##_char##COS(f); \
-    m##_char##_t s = M##_char##SIN(f); \
-    result->v[0] = c; \
-    result->v[2] = -s; \
-    result->v[6] = s; \
-    result->v[8] = c; \
-    return result; \
+#ifdef M_GEN_mat_get_position
+#define M_GEN_IMPL_mat_get_position(_char) \
+M_GEN_mat_get_position(_char) { \
+    return (struct vec3##_char){m0.m14, m0.m24, m0.m34}; \
 }
 
-M_GEN_IMPL_mat3_rotation_y(mat3,f);
-M_GEN_IMPL_mat3_rotation_y(mat3,d);
+M_GEN_IMPL_mat_get_position(f);
+M_GEN_IMPL_mat_get_position(d);
 
-#define M_GEN_IMPL_mat4_rotation_y(_s,_char) \
-M_GEN_rotation_y(_s,_char){ \
-    m##_char##_t c = M##_char##COS(f); \
-    m##_char##_t s = M##_char##SIN(f); \
-    result->v[0] = c; \
-    result->v[2] = -s; \
-    result->v[8] = s; \
-    result->v[10] = c; \
-    return result; \
-}
-
-M_GEN_IMPL_mat4_rotation_y(mat4,f);
-M_GEN_IMPL_mat4_rotation_y(mat4,d);
 #endif
 
-#ifdef M_GEN_rotation_z
-#define M_GEN_IMPL_mat2_rotation_z(_s,_char) \
-M_GEN_rotation_z(_s,_char){ \
-    m##_char##_t c = M##_char##COS(f); \
-    m##_char##_t s = M##_char##SIN(f); \
-    result->v[0] = c; \
-    result->v[1] = s; \
-    result->v[2] = -s; \
-    result->v[3] = c; \
-    return result; \
-}
-
-M_GEN_IMPL_mat2_rotation_z(mat2,f);
-M_GEN_IMPL_mat2_rotation_z(mat2,d);
-
-#define M_GEN_IMPL_mat3_rotation_z(_s,_char) \
-M_GEN_rotation_z(_s,_char){ \
-    m##_char##_t c = M##_char##COS(f); \
-    m##_char##_t s = M##_char##SIN(f); \
-    result->v[0] = c; \
-    result->v[1] = s; \
-    result->v[3] = -s; \
-    result->v[4] = c; \
-    return result; \
-}
-
-M_GEN_IMPL_mat3_rotation_z(mat3,f);
-M_GEN_IMPL_mat3_rotation_z(mat3,d);
-
-#define M_GEN_IMPL_mat4_rotation_z(_s,_char) \
-M_GEN_rotation_z(_s,_char){ \
-    m##_char##_t c = M##_char##COS(f); \
-    m##_char##_t s = M##_char##SIN(f); \
-    result->v[0] = c; \
-    result->v[1] = s; \
-    result->v[4] = -s; \
-    result->v[5] = c; \
-    return result; \
-}
-
-M_GEN_IMPL_mat4_rotation_z(mat4,f);
-M_GEN_IMPL_mat4_rotation_z(mat4,d);
-#endif
-
-#ifdef M_GEN_rotation_axis
+#ifdef M_GEN_set_rotation_axis
 
 #ifdef CGEOM_PRECISE_TRIGONOMETRY
 #define MAT_ROTATION_AXIS_TRIGONOMETRY(_char) \
@@ -2396,8 +2324,8 @@ M_GEN_IMPL_mat4_rotation_z(mat4,d);
     m##_char##_t one_c = (m##_char##_t)(1.0) - c;
 #endif
 
-#define M_GEN_IMPL_mat3_rotation_axis(_s,_char) \
-M_GEN_rotation_axis(_s,_char){ \
+#define M_GEN_IMPL_mat3_set_rotation_axis(_s,_char) \
+M_GEN_set_rotation_axis(_s,_char){ \
     MAT_ROTATION_AXIS_TRIGONOMETRY(_char); \
     m##_char##_t x = v0->v[0]; \
     m##_char##_t y = v0->v[1]; \
@@ -2422,11 +2350,11 @@ M_GEN_rotation_axis(_s,_char){ \
     return result; \
 }
 
-M_GEN_IMPL_mat3_rotation_axis(mat3,f);
-M_GEN_IMPL_mat3_rotation_axis(mat3,d);
+M_GEN_IMPL_mat3_set_rotation_axis(mat3,f);
+M_GEN_IMPL_mat3_set_rotation_axis(mat3,d);
 
-#define M_GEN_IMPL_mat4_rotation_axis(_s,_char) \
-M_GEN_rotation_axis(_s,_char){ \
+#define M_GEN_IMPL_mat4_set_rotation_axis(_s,_char) \
+M_GEN_set_rotation_axis(_s,_char){ \
     MAT_ROTATION_AXIS_TRIGONOMETRY(_char);\
     m##_char##_t x = v0->v[0]; \
     m##_char##_t y = v0->v[1]; \
@@ -2458,13 +2386,13 @@ M_GEN_rotation_axis(_s,_char){ \
     return result; \
 }
 
-M_GEN_IMPL_mat4_rotation_axis(mat4,f);
-M_GEN_IMPL_mat4_rotation_axis(mat4,d);
+M_GEN_IMPL_mat4_set_rotation_axis(mat4,f);
+M_GEN_IMPL_mat4_set_rotation_axis(mat4,d);
 #endif
 
-#ifdef M_GEN_rotation_quat
-#define M_GEN_IMPL_mat3_rotation_quat(_s,_char) \
-M_GEN_rotation_quat(_s,_char){ \
+#ifdef M_GEN_set_rotation_quat
+#define M_GEN_IMPL_mat3_set_rotation_quat(_s,_char) \
+M_GEN_set_rotation_quat(_s,_char){ \
     m##_char##_t xx = q0->v[0] * q0->v[0]; \
     m##_char##_t yy = q0->v[1] * q0->v[1]; \
     m##_char##_t zz = q0->v[2] * q0->v[2]; \
@@ -2486,11 +2414,11 @@ M_GEN_rotation_quat(_s,_char){ \
     return result; \
 }
 
-M_GEN_IMPL_mat3_rotation_quat(mat3,f);
-M_GEN_IMPL_mat3_rotation_quat(mat3,d);
+M_GEN_IMPL_mat3_set_rotation_quat(mat3,f);
+M_GEN_IMPL_mat3_set_rotation_quat(mat3,d);
 
-#define M_GEN_IMPL_mat4_rotation_quat(_s,_char) \
-M_GEN_rotation_quat(_s,_char){ \
+#define M_GEN_IMPL_mat4_set_rotation_quat(_s,_char) \
+M_GEN_set_rotation_quat(_s,_char){ \
     m##_char##_t xx = q0->v[0] * q0->v[0]; \
     m##_char##_t yy = q0->v[1] * q0->v[1]; \
     m##_char##_t zz = q0->v[2] * q0->v[2]; \
@@ -2519,10 +2447,9 @@ M_GEN_rotation_quat(_s,_char){ \
     return result; \
 }
 
-M_GEN_IMPL_mat4_rotation_quat(mat4,f);
-M_GEN_IMPL_mat4_rotation_quat(mat4,d);
+M_GEN_IMPL_mat4_set_rotation_quat(mat4,f);
+M_GEN_IMPL_mat4_set_rotation_quat(mat4,d);
 #endif
-
 
 #ifdef M_GEN_translation
 #define M_GEN_IMPL_translation(_s,_char) \

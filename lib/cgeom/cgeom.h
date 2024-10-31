@@ -785,10 +785,14 @@ M_GEN_cross(vec3,f);
 M_GEN_cross(vec3,d);
 #endif
 
-#define M_GEN_multiply_mat2(_s,_char) struct _s##_char* _s##_char##_multiply_mat2##_char( struct _s##_char* result, const struct _s##_char* v0, const struct mat2##_char* m0)
-#ifdef M_GEN_multiply_mat2
-M_GEN_multiply_mat2(vec2,f);
-M_GEN_multiply_mat2(vec2,d);
+#define M_GEN_mat_multiply(_mat,_vec,_char) struct _vec##_char _mat##_char##_multiply_##_vec##_char( struct _mat##_char m0, struct _vec##_char v0 )
+#ifdef M_GEN_mat_multiply
+M_GEN_mat_multiply(mat2,vec2,f);
+M_GEN_mat_multiply(mat2,vec2,d);
+M_GEN_mat_multiply(mat3,vec3,f);
+M_GEN_mat_multiply(mat3,vec3,d);
+M_GEN_mat_multiply(mat4,vec4,f);
+M_GEN_mat_multiply(mat4,vec4,d);
 #endif
 
 #define M_GEN_floor(_s,_char) struct _s##_char* _s##_char##_floor( struct _s##_char* result, const struct _s##_char* v0)
@@ -1024,18 +1028,6 @@ M_GEN_vec3_linear_independent(f);
 M_GEN_vec3_linear_independent(d);
 #endif
 
-#define M_GEN_multiply_mat3(_s,_char) struct _s##_char* _s##_char##_multiply_mat3##_char(struct _s##_char* result, const struct _s##_char* v0, const struct mat3##_char* m0)
-#ifdef M_GEN_multiply_mat3
-M_GEN_multiply_mat3(vec3,f);
-M_GEN_multiply_mat3(vec3,d);
-#endif
-
-#define M_GEN_multiply_mat4(_s,_char) struct _s##_char* _s##_char##_multiply_mat4##_char(struct _s##_char* result, struct _s##_char* v0, const struct mat4##_char* m0)
-#ifdef M_GEN_multiply_mat4
-M_GEN_multiply_mat4(vec4,f);
-M_GEN_multiply_mat4(vec4,d);
-#endif
-
 #define M_GEN_null(_s,_char) struct _s##_char* _s##_char##_null(struct _s##_char* result)
 #ifdef M_GEN_null
 M_GEN_null(quat,f);
@@ -1164,7 +1156,7 @@ M_GEN_scaling(mat,4,f);
 M_GEN_scaling(mat,4,d);
 #endif
 
-#define M_GEN_scale(_s,_n,_char) struct _s##_n##_char* _s##_n##_char##_scale(struct _s##_n##_char* result, const struct vec##_n##_char* v0)
+#define M_GEN_scale(_s,_n,_char) struct _s##_n##_char* _s##_n##_char##_scale( struct _s##_n##_char* result, const struct vec##_n##_char* v0 )
 #ifdef M_GEN_scale
 M_GEN_scale(mat,2,f);
 M_GEN_scale(mat,2,d);
@@ -1174,46 +1166,46 @@ M_GEN_scale(mat,4,f);
 M_GEN_scale(mat,4,d);
 #endif
 
-#define M_GEN_rotation_x(_s,_char) struct _s##_char* _s##_char##_rotation_x(struct _s##_char* result, m##_char##_t f)
-#ifdef M_GEN_rotation_x
-M_GEN_rotation_x(mat3,f);
-M_GEN_rotation_x(mat3,d);
-M_GEN_rotation_x(mat4,f);
-M_GEN_rotation_x(mat4,d);
+#define M_GEN_mat_get_position(_char) struct vec3##_char mat4##_char##_get_position( struct mat4##_char m0 )
+#ifdef M_GEN_mat_get_position
+M_GEN_mat_get_position(f);
+M_GEN_mat_get_position(d);
 #endif
 
-#define M_GEN_rotation_y(_s,_char) struct _s##_char* _s##_char##_rotation_y(struct _s##_char* result, m##_char##_t f)
-#ifdef M_GEN_rotation_y
-M_GEN_rotation_y(mat3,f);
-M_GEN_rotation_y(mat3,d);
-M_GEN_rotation_y(mat4,f);
-M_GEN_rotation_y(mat4,d);
+#define M_GEN_set_rotation(_s,_axis,_char) struct _s##_char _s##_char##_set_rotation_##_axis( struct _s##_char m0, m##_char##_t f )
+#ifdef M_GEN_set_rotation
+M_GEN_set_rotation(mat2,z,f);
+M_GEN_set_rotation(mat2,z,d);
+
+M_GEN_set_rotation(mat3,x,f);
+M_GEN_set_rotation(mat3,x,d);
+M_GEN_set_rotation(mat3,y,f);
+M_GEN_set_rotation(mat3,y,d);
+M_GEN_set_rotation(mat3,z,f);
+M_GEN_set_rotation(mat3,z,d);
+
+M_GEN_set_rotation(mat4,x,f);
+M_GEN_set_rotation(mat4,x,d);
+M_GEN_set_rotation(mat4,y,f);
+M_GEN_set_rotation(mat4,y,d);
+M_GEN_set_rotation(mat4,z,f);
+M_GEN_set_rotation(mat4,z,d);
 #endif
 
-#define M_GEN_rotation_z(_s,_char) struct _s##_char* _s##_char##_rotation_z(struct _s##_char* result, m##_char##_t f)
-#ifdef M_GEN_rotation_z
-M_GEN_rotation_z(mat2,f);
-M_GEN_rotation_z(mat2,d);
-M_GEN_rotation_z(mat3,f);
-M_GEN_rotation_z(mat3,d);
-M_GEN_rotation_z(mat4,f);
-M_GEN_rotation_z(mat4,d);
+#define M_GEN_set_rotation_axis(_s,_char) struct _s##_char* _s##_char##_set_rotation_axis(struct _s##_char* result, const struct vec3##_char* v0, m##_char##_t f)
+#ifdef M_GEN_set_rotation_axis
+M_GEN_set_rotation_axis(mat3,f);
+M_GEN_set_rotation_axis(mat3,d);
+M_GEN_set_rotation_axis(mat4,f);
+M_GEN_set_rotation_axis(mat4,d);
 #endif
 
-#define M_GEN_rotation_axis(_s,_char) struct _s##_char* _s##_char##_rotation_axis(struct _s##_char* result, const struct vec3##_char* v0, m##_char##_t f)
-#ifdef M_GEN_rotation_axis
-M_GEN_rotation_axis(mat3,f);
-M_GEN_rotation_axis(mat3,d);
-M_GEN_rotation_axis(mat4,f);
-M_GEN_rotation_axis(mat4,d);
-#endif
-
-#define M_GEN_rotation_quat(_s,_char) struct _s##_char* _s##_char##_rotation_quat(struct _s##_char* result, const struct quat##_char* q0)
-#ifdef M_GEN_rotation_quat
-M_GEN_rotation_quat(mat3,f);
-M_GEN_rotation_quat(mat3,d);
-M_GEN_rotation_quat(mat4,f);
-M_GEN_rotation_quat(mat4,d);
+#define M_GEN_set_rotation_quat(_s,_char) struct _s##_char* _s##_char##_set_rotation_quat(struct _s##_char* result, const struct quat##_char* q0)
+#ifdef M_GEN_set_rotation_quat
+M_GEN_set_rotation_quat(mat3,f);
+M_GEN_set_rotation_quat(mat3,d);
+M_GEN_set_rotation_quat(mat4,f);
+M_GEN_set_rotation_quat(mat4,d);
 #endif
 
 #define M_GEN_translation(_s,_char) struct _s##_char* _s##_char##_translation(struct _s##_char* result, const struct _s##_char* m0, const struct vec3##_char* v0)
